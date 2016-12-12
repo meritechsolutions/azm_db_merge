@@ -346,7 +346,7 @@ def check_azm_azq_app_version(args):
     # check version of AZENQOS app that produced the .azm file - must be at least 3.0.562    
     MIN_APP_V0 = 3
     MIN_APP_V1 = 0
-    MIN_APP_V2 = 562
+    MIN_APP_V2 = 579
     sqlstr = "select log_app_version from logs" # there is always only 1 ver of AZENQOS app for 1 azm - and normally 1 row of logs per azm too - but limit just in-case to be future-proof 
     cmd = [args['sqlite3_executable'],args['file'],sqlstr]
     outstr = subprocess.check_output(cmd).strip()

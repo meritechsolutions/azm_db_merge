@@ -79,13 +79,14 @@ So currently the merging of second, third files into the 'merged.db' would work
 License
 -------
 
+Copyright (C) 2016 Freewill FX Co., Ltd. All rights reserved.
 Released under the Apache-2.0 License. Please see LICENSE file.
- 
- ---
- 
-'''
-Copyright: Copyright (C) 2016 Freewill FX Co., Ltd. All rights reserved.
-Author: Kasidit Yusuf <kasidit@azenqos.com>, <ykasidit@gmail.com>
-'''
 
- 
+Contact
+-------
+
+Please contact support@azenqos.com for further info and other queries.
+
+Authors
+-------
+- Kasidit Yusuf <kasidit@azenqos.com>, <ykasidit@gmail.com>

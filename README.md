@@ -1,18 +1,27 @@
 azm_db_merge usage instructions
 ===============================
 
-Use azm_db_merge.py to merge (import) .azm files to a target database.
+Use azm_db_merge.py to merge (import) all test data (parameters, Layer-3 messages, etc) from [AZENQOS Android](http://www.azenqos.com) test logs (.azm files) into a target database.
 
-Please follow SETUP.txt to setup all requirements/dependencies first.
+Please follow SETUP.md to setup all requirements/dependencies first.
 
 For a full list of options plesase use cmd:
 python azm_db_merge.py --help
 
+The current azm_db_merge support for PostgreSQL and Microsoft SQL Server implementation (through pyodbc + "SQL Server Natve Client 11.0" ODBC driver)
+ has full support for all azm_db_merge features:
+- auto table create
+- if table already exists in server, auto add of coulmns found in .azm to server
+- very fast import speed through bulk insert operations. (A 1 hour lte/wcdma drive takes about 10 seconds to import for MSSQL and around 4.3 seconds for PostgreSQL).
+- prevent duplicate .azm imports.
+- unmerge support.
+- merge/unmerge transactions are atomic.
 
-merge (import) 
---------------
 
-Specify --azm_file <file.azm> to import the .azm's log database to a central Database.
+Generic usage
+-------------
+
+Specify --azm_file <file.azm or folder containing multiple .azm files> to import the .azm's log database to a central Database. To 'unmerge' (remove all data from target db that cam from this .azm file) simply add --unmerge .
 
 This operation will CREATE (if requireD), ALTER (if new columns are detected)
 and INSERT data from all tables in the 'azqdata.db' of the azm log file into
@@ -28,18 +37,20 @@ https://docs.google.com/spreadsheets/d/1ddl-g_qyoMYLF8PMkjrYPrpXusdinTZxsWLQOzJ6
 You need to specify the --target_db_type and its ODBC login settings too.
 (for SQLite3 merges - specify all login, password, database as "" - not used).
 
+PostgreSQL examples:
+--------------------
 
-Microsoft SQL Server import/merge and unmerge:
----------------------------------------------
+Please see example GNU/Linux shell script files named below:
+merge:
+  - ex_postgre_merge_azm.sh
+  - ex_postgre_merge_folder.sh
+unmerge:
+  - ex_postgre_unmerge_azm.sh
+  - ex_postgre_unmerge_folder.sh
+  
 
-The current azm_db_merge SQL Server implementation (through pyodbc + "SQL Server Natve Client 11.0" ODBC driver)
- has full support for all azm_db_merge features:
-- auto table create
-- if table already exists in server, auto add of coulmns found in .azm to server
-- very fast import speed through bulk insert operations. (A 1 hour lte/wcdma drive takes about 10 seconds to import).
-- prevent duplicate .azm imports.
-- unmerge support.
-- merge/unmerge transactions are atomic.
+Microsoft SQL Server examples:
+------------------------------
 
 Merge (import all data from .azm log) example command:
 python azm_db_merge.py --azm_file "358096071732800 16_11_2016 17.14.15.azm" --target_db_type mssql --server_user azqdblogin --server_password pass --server_database azqdb
@@ -59,6 +70,12 @@ So currently the merging of second, third files into the 'merged.db' would work
  but be reported as fail because there are no 'create if not exist' checks yet.
  Also, for sqlite3 target dbs - merging of a second file must be from the same
  azq app version only because there are no coulmn diff checks yet.
+
+
+License
+-------
+
+Released under the Apache-2.0 License. Please see LICENSE file.
  
  ---
  

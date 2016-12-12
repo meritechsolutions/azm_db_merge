@@ -1,7 +1,15 @@
 azm_db_merge usage instructions
 ===============================
 
-Use azm_db_merge.py to merge (import) all test data (parameters, Layer-3 messages, etc) from [AZENQOS Android](http://www.azenqos.com) test logs (.azm files) into a target database.
+Use azm_db_merge.py to merge (import) all test data (parameters, Layer-3 messages, etc) from [AZENQOS Android](http://www.azenqos.com) test logs (.azm files) into a target database for further Big data or radio analysis/research/reporting uses.
+
+Notes:
+- A ".azm" file is simply a renamed zip file so you can open/extract with
+any zip manager software to view the azqdata.db file with any SQLite3 browser program on PC. (If you don't see this file in your .azm logs, go to AZENQOS app > Settings > Enable Database Logging to enable this feature).
+- Some logs are provided in the 'example_logs' folder.
+- The full list of the parameters and their tables is available at:
+https://docs.google.com/spreadsheets/d/1ddl-g_qyoMYLF8PMkjrYPrpXusdinTZxsWLQOzJ6xu8/edit?usp=sharing
+- The Layer-3 messages are in the 'signalling' table and the events are in the 'events' table.
 
 Please follow SETUP.md to setup all requirements/dependencies first.
 
@@ -26,10 +34,6 @@ Specify --azm_file <file.azm or folder containing multiple .azm files> to import
 This operation will CREATE (if requireD), ALTER (if new columns are detected)
 and INSERT data from all tables in the 'azqdata.db' of the azm log file into
 the target (central) database.
-
-Note: A .azm file is simply a renamed zip file so you can open/extract with
-any zip manager software to view the azqdata.db file with any SQLite3 
-browser program on PC.
 
 Note: For a list of all 'elements' (which form tables through binding to columns) of azm's azqdata.db please refer to:
 https://docs.google.com/spreadsheets/d/1ddl-g_qyoMYLF8PMkjrYPrpXusdinTZxsWLQOzJ6xu8/

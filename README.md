@@ -80,6 +80,7 @@ License
 -------
 
 Copyright (C) 2016 Freewill FX Co., Ltd. All rights reserved.
+
 Released under the Apache-2.0 License. Please see LICENSE file.
 
 Contact

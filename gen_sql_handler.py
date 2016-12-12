@@ -3,7 +3,6 @@ module to handle merging (importing) of (azqdata.db from
 azq .azm files) sqlite3 dump lines into a PostgreSQL and Microsoft SQL Server db.
 
 Copyright: Copyright (C) 2016 Freewill FX Co., Ltd. All rights reserved.
-Author: Kasidit Yusuf <kasidit@azenqos.com>, <ykasidit@gmail.com>
 
 '''
 

@@ -1,6 +1,5 @@
 '''
 Copyright: Copyright (C) 2016 Freewill FX Co., Ltd. All rights reserved.
-Author: Kasidit Yusuf <kasidit@azenqos.com>, <ykasidit@gmail.com>
 '''
 
  

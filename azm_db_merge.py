@@ -7,7 +7,6 @@ central database (Now MS-SQL and SQLite3 only, later/roadmap: PostgreSQL and MyS
 Please read SETUP.txt and INSTRUCTIONS.txt for usage examples.
 
 Copyright: Copyright (C) 2016 Freewill FX Co., Ltd. All rights reserved.
-Author: Kasidit Yusuf <kasidit@azenqos.com>, <ykasidit@gmail.com>
 
 '''
 

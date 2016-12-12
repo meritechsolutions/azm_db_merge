@@ -88,6 +88,3 @@ Contact
 
 Please contact support@azenqos.com for further info and other queries.
 
-Authors
--------
-- Kasidit Yusuf <kasidit@azenqos.com>, <ykasidit@gmail.com>

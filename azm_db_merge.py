@@ -22,6 +22,7 @@ import zipfile
 import os
 import shutil
 import glob
+import traceback
 
 
 # global vars
@@ -491,7 +492,7 @@ def process_azm_file(args):
         
     
     except Exception as e:
-        print "raise e"
+        print "re-raise exception e"
         raise e
     finally:
         print "cleanup start..."
@@ -564,7 +565,9 @@ for azm in azm_files:
     except Exception as e:
         ifailed = ifailed + 1
         had_errors = True
-        print "## FAILED: process azm {} failed with below exception:\n(start of exception)\n{}\n(end of exception)".format(azm,str(e))
+        type_, value_, traceback_ = sys.exc_info()
+        exstr = traceback.format_exception(type_, value_, traceback_)
+        print "## FAILED: process azm {} failed with below exception:\n(start of exception)\n{}\n{}(end of exception)".format(azm,str(e),exstr)
         if (args['folder_mode_stop_on_first_failure']):
             print "--folder_mode_stop_on_first_failure specified - exit now."
             exit(-9)

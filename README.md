@@ -44,7 +44,7 @@ You need to specify the --target_db_type and its ODBC login settings too.
 PostgreSQL examples:
 --------------------
 
-Please see example GNU/Linux shell script files named below:
+Please open example GNU/Linux shell script files named below in a text editor:
 merge:
   - ex_postgre_merge_azm.sh
   - ex_postgre_merge_folder.sh
@@ -56,7 +56,7 @@ unmerge:
 Microsoft SQL Server examples:
 ------------------------------
 
-Please see example Windows bat files named below:
+Please open example Windows bat files named below in a text editor:
 merge:
   - ex_mssql_import_azm.bat
   - ex_mssql_import_azm_folder.bat

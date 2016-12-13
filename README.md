@@ -56,11 +56,13 @@ unmerge:
 Microsoft SQL Server examples:
 ------------------------------
 
-Merge (import all data from .azm log) example command:
-python azm_db_merge.py --azm_file "358096071732800 16_11_2016 17.14.15.azm" --target_db_type mssql --server_user azqdblogin --server_password pass --server_database azqdb
-
-Unmerge (delete all data in target database that came from .azm log) example command:
-python azm_db_merge.py --unmerge --azm_file "358096071732800 16_11_2016 17.14.15.azm" --target_db_type mssql --server_user azqdblogin --server_password pass --server_database azqdb
+Please see example Windows bat files named below:
+merge:
+  - ex_mssql_import_azm.bat
+  - ex_mssql_import_azm_folder.bat
+unmerge:
+  - ex_mssql_remove_azm.bat
+  - ex_mssql_remove_azm_folder.bat
 
 
 sqlite3 import/merge .azm example

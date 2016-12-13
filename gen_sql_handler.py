@@ -131,9 +131,12 @@ def check_if_already_merged(args, log_ori_file_name):
         row = None
 
         # use with for auto rollback() on g_conn on exception - otherwise we cant use the cursor again - would fail as: current transaction is aborted, commands ignored until end of transaction block
+        ret = None
         with g_conn as c:
             ret = g_cursor.execute(sqlstr, [log_ori_file_name])
             row = g_cursor.fetchone()
+
+        dprint("after cmd")
 
         if (row is None):
             
@@ -152,8 +155,10 @@ def check_if_already_merged(args, log_ori_file_name):
             # azm already imported
                         
             if (args['unmerge']):
+                
+                dprint("um0")
 
-                if g_is_postgre:
+                if g_is_postgre or g_is_ms:
                     dprint("upg 0")
                     # row is a tuple - make it a dict
                     dprint("upg 01")
@@ -166,6 +171,8 @@ def check_if_already_merged(args, log_ori_file_name):
                         drow[col[0]] = row[i]
                         i = i+1
                     row = drow
+                
+                dprint("um1")
                     
                 print "### unmerge mode - delete start for azm: imei {} , log_start_time {} , log_end_time {}".format(row['imei_id'], row['log_start_time'], row['log_end_time'])
                 g_unmerge_logs_row = row

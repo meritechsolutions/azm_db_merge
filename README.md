@@ -11,6 +11,8 @@ any zip manager software to view the azqdata.db file with any SQLite3 browser pr
 - The full list of the parameters and their tables is available at:
 https://docs.google.com/spreadsheets/d/1ddl-g_qyoMYLF8PMkjrYPrpXusdinTZxsWLQOzJ6xu8/edit?usp=sharing
 - The Layer-3 messages are in the 'signalling' table and the events are in the 'events' table.
+- For more info on tables and elements system with examples - please see the 'AZQ User Guide' database access section below:
+https://docs.google.com/document/d/18GZAgcs3jRFdWqfvAqmQicvYlXRk6D0WktqWmd5iwwo/edit#heading=h.6vk8shbpst4
 
 Please follow [SETUP.md](https://github.com/freewillfx-azenqos/azm_db_merge/blob/master/SETUP.md) to setup all requirements/dependencies first.
 

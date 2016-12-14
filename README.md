@@ -6,6 +6,7 @@ Import all LTE/WCDMA/GSM test data (radio parameters, Layer-3 messages, etc) fro
 Notes:
 - A ".azm" file is simply a renamed zip file so you can open/extract with
 any zip manager software to view the azqdata.db file with any SQLite3 browser program on PC. (If you don't see this file in your .azm logs, go to AZENQOS app > Settings > Enable Database Logging to enable this feature).
+- Required AZENQOS Android app version: v579 (3.0.579) or newer.
 - Some logs are provided in the 'example_logs' folder.
 - The full list of the parameters and their tables is available at:
 https://docs.google.com/spreadsheets/d/1ddl-g_qyoMYLF8PMkjrYPrpXusdinTZxsWLQOzJ6xu8/edit?usp=sharing

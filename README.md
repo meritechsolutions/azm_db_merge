@@ -69,11 +69,13 @@ Please open example Windows bat files named below in a text editor:
 sqlite3 import/merge .azm example
 ---------------------------------
 
-In below example we import one azm into 'merged.db':
+In below example we import one azm named "mod.azm" into 'merged.db':
 
 <pre>
 python azm_db_merge.py --target_db_type sqlite3 --azm_file mod.azm --server_user "" --server_password "" --server_database "" --target_sqlite3_file merged.db
 </pre>
+
+(and then do this again for other .azm files to merge or specify the folder contaning all the azm files to merge at once instead)
 
 Note: the sqlite3 merge option is very early and does not have any CREATE, ALTER checks and no --unmerge support too.
 So currently the merging of second, third files into the 'merged.db' would work

@@ -1,4 +1,4 @@
-Installation
+Setup instructions
 ============
 
 - Install python 2.7

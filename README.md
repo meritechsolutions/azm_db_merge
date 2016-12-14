@@ -1,5 +1,5 @@
-azm_db_merge usage instructions
-===============================
+azm_db_merge 
+============
 
 Use azm_db_merge.py to merge (import) all test data (parameters, Layer-3 messages, etc) from [AZENQOS Android](http://www.azenqos.com) test logs (.azm files) into a target database for further Big data or radio analysis/research/reporting uses.
 

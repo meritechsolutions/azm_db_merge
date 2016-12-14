@@ -12,7 +12,7 @@ https://docs.google.com/document/d/18GZAgcs3jRFdWqfvAqmQicvYlXRk6D0WktqWmd5iwwo/
 https://docs.google.com/spreadsheets/d/1ddl-g_qyoMYLF8PMkjrYPrpXusdinTZxsWLQOzJ6xu8/edit?usp=sharing
 - The Layer-3 messages are in the 'signalling' table and the events are in the 'events' table.
 
-Please follow [SETUP.md](https://github.com/freewillfx-azenqos/azm_db_merge/blob/master/SETUP.md) to setup all requirements/dependencies first.
+Please follow [SETUP.md](SETUP.md) to setup all requirements/dependencies first.
 
 For a full list of options plesase use cmd:
 python azm_db_merge.py --help
@@ -47,11 +47,11 @@ PostgreSQL examples:
 
 Please open example GNU/Linux shell script files named below in a text editor:
 - merge:
-  - ex_postgre_merge_azm.sh
-  - ex_postgre_merge_folder.sh
+  - [ex_postgre_merge_azm.sh](ex_postgre_merge_azm.sh)
+  - [ex_postgre_merge_folder.sh](ex_postgre_merge_folder.sh)
 - unmerge:
-  - ex_postgre_unmerge_azm.sh
-  - ex_postgre_unmerge_folder.sh
+  - [ex_postgre_unmerge_azm.sh](ex_postgre_unmerge_azm.sh)
+  - [ex_postgre_unmerge_folder.sh](ex_postgre_unmerge_folder.sh)
   
 
 Microsoft SQL Server examples:
@@ -59,11 +59,11 @@ Microsoft SQL Server examples:
 
 Please open example Windows bat files named below in a text editor:
 - merge:
-  - ex_mssql_import_azm.bat
-  - ex_mssql_import_azm_folder.bat
+  - [ex_mssql_import_azm.bat](ex_mssql_import_azm.bat)
+  - [ex_mssql_import_azm_folder.bat](ex_mssql_import_azm_folder.bat)
 - unmerge:
-  - ex_mssql_remove_azm.bat
-  - ex_mssql_remove_azm_folder.bat
+  - [ex_mssql_remove_azm.bat](ex_mssql_remove_azm.bat)
+  - [ex_mssql_remove_azm_folder.bat](ex_mssql_remove_azm_folder.bat)
 
 
 sqlite3 import/merge .azm example
@@ -75,7 +75,7 @@ In below example we import one azm named "mod.azm" into 'merged.db':
 python azm_db_merge.py --target_db_type sqlite3 --azm_file mod.azm --server_user "" --server_password "" --server_database "" --target_sqlite3_file merged.db
 </pre>
 
-(and then do this again for other .azm files to merge or specify the folder contaning all the azm files to merge at once instead)
+(and then do this again for other .azm files to merge or specify the folder contaning all the azm files to merge once instead)
 
 Note: the sqlite3 merge option is very early and does not have any CREATE, ALTER checks and no --unmerge support too.
 So currently the merging of second, third files into the 'merged.db' would work

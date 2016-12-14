@@ -45,10 +45,10 @@ PostgreSQL examples:
 --------------------
 
 Please open example GNU/Linux shell script files named below in a text editor:
-merge:
+- merge:
   - ex_postgre_merge_azm.sh
   - ex_postgre_merge_folder.sh
-unmerge:
+- unmerge:
   - ex_postgre_unmerge_azm.sh
   - ex_postgre_unmerge_folder.sh
   
@@ -57,10 +57,10 @@ Microsoft SQL Server examples:
 ------------------------------
 
 Please open example Windows bat files named below in a text editor:
-merge:
+- merge:
   - ex_mssql_import_azm.bat
   - ex_mssql_import_azm_folder.bat
-unmerge:
+- unmerge:
   - ex_mssql_remove_azm.bat
   - ex_mssql_remove_azm_folder.bat
 

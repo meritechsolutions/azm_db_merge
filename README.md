@@ -11,7 +11,7 @@ any zip manager software to view the azqdata.db file with any SQLite3 browser pr
 https://docs.google.com/spreadsheets/d/1ddl-g_qyoMYLF8PMkjrYPrpXusdinTZxsWLQOzJ6xu8/edit?usp=sharing
 - The Layer-3 messages are in the 'signalling' table and the events are in the 'events' table.
 
-Please follow SETUP.md to setup all requirements/dependencies first.
+Please follow [SETUP.md](https://github.com/freewillfx-azenqos/azm_db_merge/blob/master/SETUP.md) to setup all requirements/dependencies first.
 
 For a full list of options plesase use cmd:
 python azm_db_merge.py --help

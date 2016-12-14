@@ -18,7 +18,8 @@ or Microsoft SQL Server - please see config info below.
 PostgreSQL
 ----------
 
-Ubuntu: (tutorial: https://www.digitalocean.com/community/tutorials/how-to-install-and-use-postgresql-on-ubuntu-14-04)
+Ubuntu: (see tutorial: https://www.digitalocean.com/community/tutorials/how-to-install-and-use-postgresql-on-ubuntu-14-04)
+
 sudo apt-get install postgresql postgresql-contrib
 
 sudo pip install psycopg2==2.6.1

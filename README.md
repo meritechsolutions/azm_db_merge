@@ -42,6 +42,15 @@ https://docs.google.com/spreadsheets/d/1ddl-g_qyoMYLF8PMkjrYPrpXusdinTZxsWLQOzJ6
 You need to specify the --target_db_type and its ODBC login settings too.
 (for SQLite3 merges - specify all login, password, database as "" - not used).
 
+**A note on the 'logs' table and how to filter tables for each 'azm log':**
+
+After a successful merge, you will have a new row showing the imei, log_start_time and log_endtime of that azm - in the 'logs' table.
+
+All tables have the 'imei_id' and 'time' column so if you need to know 'from which log did this row in this table come from' - you can simply use the 'time' and 'imei_id' of that row to check if it fits into the range of which row in the 'logs' table.
+
+Conversely, if you need to select data from a table 'that came from a particular log only' you simply need to get the 'imei', 'log_start_time', 'log_end_time' of that log from the 'logs' table then use them to filter your target table - for example: select * from event where imei_id like '358096071732800' and "time" between '2016-11-16 16:06:21.510' and '2016-11-16 17:14:15.220'.
+
+
 PostgreSQL examples:
 --------------------
 

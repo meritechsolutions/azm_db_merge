@@ -10,6 +10,15 @@ Setup instructions
   - Windows: Download/install/add folder of sqlite3.exe to
   PATH (Environment Variables).
   - Ubuntu/Debian: sudo apt-get install sqlite3
+
+- Install other dependencies:
+  - Ubuntu:
+    sudo pip install psycopg2==2.6.1
+    sudo apt-get install unixodbc-dev
+    sudo pip install pyodbc
+  - Windows:
+    pip install psycopg2==2.6.1
+    pip install pyodbc
   
 Next, except for merging into sqlite3 databases - you need to configure
 'ODBC' access to your target Database Management System - either PostgreSQL, MySQL
@@ -21,8 +30,6 @@ PostgreSQL
 Ubuntu: (see tutorial: https://www.digitalocean.com/community/tutorials/how-to-install-and-use-postgresql-on-ubuntu-14-04)
 
 sudo apt-get install postgresql postgresql-contrib
-
-sudo pip install psycopg2==2.6.1
 
 
 Microsoft SQL Server Configs

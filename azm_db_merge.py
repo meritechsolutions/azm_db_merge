@@ -112,7 +112,15 @@ def parse_cmd_args():
                         first before reading and parsing.
                         (We found that this is a bit slower and taks some disk space).""",
                         default=False)
-  
+
+    parser.add_argument('--exclude_tables',
+                        help="""List tables to exclude from merge - separated by commas. Default tables 'spatial_ref_sys,geometry_columns' are always ommitted.""",
+                        default='')
+
+    parser.add_argument('--only_tables',
+                        help="""List tables to "import only these tables". Default tables 'logs,' are always imported.""",
+                        default='')
+
     
     args = vars(parser.parse_args())
     return args
@@ -206,10 +214,26 @@ def handle_sql3_dump_line(args, line):
             # dprint("multi line insert still not ending - continue")
             return True
         
+    is_omit_table = False
+   
+    if line.startswith("CREATE TABLE "):
+        table_name = line.split(" (")[0].replace("CREATE TABLE ","").replace("\"","")
+        dprint("check table_name is_omit_table: "+table_name)
+        is_omit_table = table_name in args['omit_tables_array']
+        print "is this table in --omit_tables ? "+table_name+" = "+str(is_omit_table)
+
+        if args['only_tables_on']:
+            print "--only_tables on - check if we should exclude this table: "+table_name
+            is_omit_table = True
+            if table_name in args['only_tables_array']:
+                is_omit_table = False
+            print "--only_tables on - exclude this table? "+table_name+" = "+str(is_omit_table)
+        
         
     if (
-            line.startswith("CREATE TABLE") and
-            not line.startswith("CREATE TABLE android_metadata")
+            line.startswith("CREATE TABLE ") and
+            not line.startswith("CREATE TABLE android_metadata") and
+            not is_omit_table
     ):
         # TODO: flush remaining buffered INSERTS?
 
@@ -346,7 +370,7 @@ def check_azm_azq_app_version(args):
     # check version of AZENQOS app that produced the .azm file - must be at least 3.0.562    
     MIN_APP_V0 = 3
     MIN_APP_V1 = 0
-    MIN_APP_V2 = 579
+    MIN_APP_V2 = 587
     sqlstr = "select log_app_version from logs" # there is always only 1 ver of AZENQOS app for 1 azm - and normally 1 row of logs per azm too - but limit just in-case to be future-proof 
     cmd = [args['sqlite3_executable'],args['file'],sqlstr]
     outstr = subprocess.check_output(cmd).strip()
@@ -492,7 +516,9 @@ def process_azm_file(args):
         
     
     except Exception as e:
-        print "re-raise exception e"
+        type_, value_, traceback_ = sys.exc_info()
+        exstr = traceback.format_exception(type_, value_, traceback_)
+        print "re-raise exception e - ",exstr
         raise e
     finally:
         print "cleanup start..."
@@ -520,7 +546,22 @@ print infostr
 
 args = parse_cmd_args()
 
+omit_tables = "spatial_ref_sys,geometry_columns,"+args['exclude_tables']
+omit_tables_array = omit_tables.split(",")
+args['omit_tables_array'] = omit_tables_array
+
+only_tables = "logs,"+args['only_tables']
+only_tables_array = only_tables.split(",")
+args['only_tables_array'] = only_tables_array
+
+if only_tables == "logs,": # logs is default table - nothing added
+    args['only_tables_on'] = False
+else:
+    args['only_tables_on'] = True
+
+    
 mod_name = args['target_db_type']
+
 if  mod_name in ['postgresql','mssql']:
     mod_name = 'gen_sql'
 mod_name = mod_name + "_handler"

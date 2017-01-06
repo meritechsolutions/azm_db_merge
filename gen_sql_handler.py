@@ -174,30 +174,10 @@ def check_if_already_merged(args, log_ori_file_name):
                 
                 dprint("um1")
                     
-                print "### unmerge mode - delete start for azm: imei {} , log_start_time {} , log_end_time {}".format(row['imei_id'], row['log_start_time'], row['log_end_time'])
+                print "### unmerge mode - delete start for azm: log_hash {}".format(row['log_hash'])
                 g_unmerge_logs_row = row
                 
-                # check if log duration more than 24 hrs - might be time change or bug - dont delete and let user check manually
-                MAX_AUTO_UNMERGE_LOG_DURATION_SECONDS = 3600 * 24
-                log_dur_seconds = (g_unmerge_logs_row['log_end_time'] - g_unmerge_logs_row['log_start_time']).total_seconds()
-                
-                print "= log duration seconds: "+str(log_dur_seconds)
-                
-                if (log_dur_seconds > MAX_AUTO_UNMERGE_LOG_DURATION_SECONDS):
-                    if (args['force_unmerge_logs_longer_than_24_hrs']):
-                        print "= --force_unmerge_logs_longer_than_24_hrs flag specified - omit log dur > 24 hrs check"
-                        pass
-                    else:
-                        raise Exception("""ABORT: log duration > 24 hrs - might be time change or
-                        some time bug that might accidentally remove other
-                        logs' data from this imei - please check this azm's .db
-                        manually and maybe use
-                        --force_unmerge_logs_longer_than_24_hrs
-                        to force unmerge this log too - ABORT.""")
-                        
-        
-                                
-                sqlstr = "delete from \"logs\" where \"log_ori_file_name\" like '{}'".format(log_ori_file_name)        
+                sqlstr = "delete from \"logs\" where \"log_ori_file_name\" like '{}'".format(log_ori_file_name)
                 
                 g_exec_buf.append(sqlstr)
                 print "delete from logs table added to g_exec_buf..."
@@ -292,13 +272,13 @@ def create(args, line):
         print "### unmerge mode - delete all rows for this azm in table: "+table_name
         
         # "time" needs to be quoted to tell that it is a column name!
-        # example: select * from event where imei_id like '358096071732800' and "time" between '2016-11-16 16:06:21.510' and '2016-11-16 17:14:15.220'
-        
+        # example: select * from event where log_hash like '358096071732800' and "time" between '2016-11-16 16:06:21.510' and '2016-11-16 17:14:15.220'
+        """ now we use log_hash - no need to parse time
         # remove 3 traling 000 from microsecs str
         start_dt_str = str(g_unmerge_logs_row['log_start_time'])[:-3] 
         end_dt_str = str(g_unmerge_logs_row['log_end_time'])[:-3]
-        
-        sqlstr = "delete from \""+table_name+"\" where \"imei_id\" = {} and \"time\" between '{}' and '{}'".format(g_unmerge_logs_row['imei_id'], start_dt_str, end_dt_str)
+        """
+        sqlstr = "delete from \""+table_name+"\" where \"log_hash\" = {}".format(g_unmerge_logs_row['log_hash'])
         g_exec_buf.append(sqlstr)
         
         return True
@@ -576,8 +556,6 @@ def sql_adj_line(line):
     
     sqlstr = line
     #sqlstr = sqlstr.replace('`', '"')
-    sqlstr = sqlstr.replace("\" blob", "\" text")
-
     sqlstr = sqlstr.replace("\" double", "\" float")
     sqlstr = sqlstr.replace("\" DOUBLE", "\" float")
 
@@ -587,6 +565,7 @@ def sql_adj_line(line):
     if (g_is_postgre):
         sqlstr = sqlstr.replace("\" DATETIME", "\" timestamp")
         sqlstr = sqlstr.replace("\" datetime", "\" timestamp")
+        sqlstr = sqlstr.replace("\" BLOB", "\" bytea")
         
     # default empty fields to text type
     # sqlstr = sqlstr.replace("\" ,", "\" text,")

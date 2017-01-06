@@ -46,9 +46,7 @@ You need to specify the --target_db_type and its ODBC login settings too.
 
 After a successful merge, you will have a new row showing the imei, log_start_time and log_endtime of that azm - in the 'logs' table.
 
-All tables have the 'imei_id' and 'time' column so if you need to know 'from which log did this row in this table come from' - you can simply use the 'time' and 'imei_id' of that row to check if it fits into the range of which row in the 'logs' table.
-
-Conversely, if you need to select data from a table 'that came from a particular log only' you simply need to get the 'imei', 'log_start_time', 'log_end_time' of that log from the 'logs' table then use them to filter your target table - for example: select * from event where imei_id like '358096071732800' and "time" between '2016-11-16 16:06:21.510' and '2016-11-16 17:14:15.220'.
+All tables have the 'log_hash' showing 'from which log did this row in this table come from' - you find info about the log with matching 'log_hash' from the 'logs' table. The 'log_hash' can also be calculated - it is simply a 64-bit number: the high 32 bits is the "last 9 digits of the imei", the low 32 bits is the "log start time" in the format of "seconds since January 1, 1970".
 
 
 PostgreSQL examples:

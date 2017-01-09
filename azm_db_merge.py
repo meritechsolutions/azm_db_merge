@@ -235,7 +235,6 @@ def handle_sql3_dump_line(args, line):
             not line.startswith("CREATE TABLE android_metadata") and
             not is_omit_table
     ):
-        # TODO: flush remaining buffered INSERTS?
 
         # get table name:
         table_name = line.split(" ")[2].replace("\"", "")

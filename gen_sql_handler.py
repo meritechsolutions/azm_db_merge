@@ -413,6 +413,28 @@ def create(args, line):
         sqlite3 azqdata.db -list -newline "|" -separator "," ".out c:\\azq\\azq_report_gen\\azm_db_merge\\logs.csv" "select * from logs"
         """
 
+        #TODO: get col list, and hex(col) for blob coulumns
+
+        col_select = ""
+        first = True
+        #print "local_columns: ",local_columns
+        for col in local_columns:
+            col_name = col[0]
+            col_type = col[1]
+            if first:
+                first = False
+            else:
+                col_select = col_select + ","
+            pre = " "
+            post = ""
+            if col_type == "bytea" or col_type == "BLOB":
+                pre = " hex("
+                post = ")"
+                
+            col_select = col_select + pre + col_name + post
+            #print "col_select: ",col_select
+            
+                
         if g_is_ms:
             ret = call(
                 [
@@ -423,7 +445,7 @@ def create(args, line):
                 '-separator', azm_db_constants.BULK_INSERT_COL_SEPARATOR_VALUE,
                 '-newline', azm_db_constants.BULK_INSERT_LINE_SEPARATOR_VALUE,
                 '.out ' + '"' +table_dump_fp.replace("\\","\\\\") + '"', # double backslash because it needs to go inside sqlite3 cmd parsing again      
-                'select * from '+ table_name
+                'select '+col_select+' from '+ table_name
                 ], shell = False
             )
 
@@ -437,7 +459,7 @@ def create(args, line):
                 '-separator',',',
                 '-newline', '\n',
                 '.out ' + '"' +table_dump_fp.replace("\\","\\\\") + '"', # double backslash because it needs to go inside sqlite3 cmd parsing again      
-                'select * from '+ table_name
+                'select '+col_select+' from '+ table_name
                 ], shell = False
             )
 

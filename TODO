@@ -1,6 +1,8 @@
 * import to postgres
-  * test add col
-  * test atomicity
+  * pg geom spatialite to wkb
+  * test alter add col
+
+* mssql geom wkb
 
 * test postgre on windows
 

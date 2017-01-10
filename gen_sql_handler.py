@@ -6,13 +6,10 @@ Copyright: Copyright (C) 2016 Freewill FX Co., Ltd. All rights reserved.
 
 '''
 
-
-import pyodbc
 from debug_helpers import dprint
 import azm_db_constants
 from subprocess import call
 import os
-from pyodbc import SQL_MAX_TABLE_NAME_LEN
 
 # global vars
 g_is_postgre = False
@@ -53,9 +50,11 @@ def connect(args):
         g_is_postgre = True
         import psycopg2
         
+        
     elif (args['target_db_type'] == 'mssql'):
         g_is_ms = True
-    
+        import pyodbc
+
     # cleanup old stuff just in case
     close(args)
     
@@ -109,6 +108,22 @@ def connect(args):
     print "connected"
     
     g_cursor = g_conn.cursor()
+
+    # post connect steps for each dbms
+    if g_is_postgre:
+        try:
+            with g_conn as c:
+                ret = g_cursor.execute("CREATE EXTENSION postgis")
+                print "success: CREATE EXTENSION postgis"
+        except Exception as e:
+            estr = str(e)
+            if 'extension "postgis" already exists' in estr:
+                dprint("postgis already exists")
+                pass
+            else:
+                print("FATAL: CREATE EXTENSION postgis - failed - please make sure postgis is correctly installed.")
+                raise e
+       
 
     return True
 
@@ -255,6 +270,102 @@ def commit(args, line):
     
     return True
 
+def find_and_conv_spatialite_blob_to_wkb(csv_line):
+    spat_blob_offset = csv_line.find('0001E6100000')
+    if spat_blob_offset == -1:
+        dprint
+        return csv_line
+    part = csv_line[spat_blob_offset:spat_blob_offset+120+1]
+    dprint("csv_line spatialite_geom_part: "+part)
+
+    spatialite_geom_contents = ""
+    if part[120] == ',':
+        spatialite_geom_contents = part[0:120]
+    else:
+        dprint("check of spatialite_geom_part - failed - abort")
+        return csv_line
+    
+    dprint("spatialite_geom_contents: len "+str(len(spatialite_geom_contents))+" val: "+spatialite_geom_contents)
+    # convert spatialite geometry blob to wkb
+    """
+
+    Spatialite BLOB Format (Point)
+    ------------------------------
+
+    http://www.gaia-gis.it/gaia-sins/BLOB-Geometry.html
+    example:
+    0001E6100000DD30C0F46C2A594041432013008E2B40DD30C0F46C2A594041432013008E2B407C01000000DD30C0F46C2A594041432013008E2B40FE
+
+    parse:
+    spatialite header: 00 (str_off 0 str_len 2)
+    endian: 01 (str_off 2 str_len 2)
+    SRID: E6 10 00 00 (str_off 4 str_len 8)
+    MBR_MIN_X: DD 30 C0 F4 6C 2A 59 40 (str_off 12 str_len 16)
+    MBR_MIN_Y: 41 43 20 13 00 8E 2B 40 (str_off 28 str_len 16)
+    MBR_MAX_X: DD 30 C0 F4 6C 2A 59 40 (str_off 42 str_len 16)
+    MBR_MAX_Y: 41 43 20 13 00 8E 2B 40 (str_off 58 str_len 16)
+    MBR_END: 7C (str_off 76 str_len 2)
+    CLASS_TYPE: 01 00 00 00 (str_off 78 str_len 8)
+    POINT:
+      X: DD 30 C0 F4 6C 2A 59 40 (str_off 86 str_len 16)
+      Y: 41 43 20 13 00 8E 2B 40 (str_off 102 str_len 16)
+    END: FE (str_off 118 str_len 2)
+
+    ---
+
+    WKB Format
+    ----------
+
+    See "3.3.2.6 Description of WKBGeometry Representations"
+    in https://portal.opengeospatial.org/files/?artifact_id=829
+
+    Point {
+    double x;
+    double y;
+    };
+
+    WKBPoint {
+    byte byteOrder;
+    uint32 wkbType; // 1
+    Point point;
+    }
+
+    Therefore, for "Point" we need from spatialite blob parts:
+    endian, CLASS_TYPE, POINT
+    """
+    # spatialite blob point size is 60 bytes = 120 chars in hex - as in above example and starts with 00
+    if len(spatialite_geom_contents) == 120 and spatialite_geom_contents[0] == '0' and spatialite_geom_contents[1] == '0':
+        endian = spatialite_geom_contents[2:4] # 2 + len 2
+        """
+        old code: class_type = spatialite_geom_contents[78:86] # 78 + 8
+
+        change class_type to 'point' BITWISE_OR SRID flag as per https://trac.osgeo.org/postgis/browser/trunk/doc/ZMSgeoms.txt
+       
+        "
+        wkbSRID = 0x20000000
+        If the SRID flag is set it's value is encoded as a 4byte integer
+	right after the type integer.
+        "
+
+        so our class is pont | wkbSRID = 0x20000001 (little endian 32: 01000020)
+
+        then add srid "right after the type integer"
+        our srid = 4326 = 0x10E6 (little endian 32: E6100000)
+        
+        therefore, class_type_point_with_srid_wgs84 little_endian is 01000020E6100000
+
+        """
+        class_type_point_with_srid_wgs84 = "01000020E6100000"
+        point = spatialite_geom_contents[86:118] # 86 + 16 + 16
+        wkb = endian + class_type_point_with_srid_wgs84 + point
+        dprint("wkb: "+wkb)
+        csv_line = csv_line.replace(spatialite_geom_contents,wkb,1)
+    else:
+        dprint("not entering spatialite blob parse - len "+str(len(spatialite_geom_contents)))
+
+    dprint("find_and_conv_spatialite_blob_to_wkb ret: "+csv_line)
+    return csv_line
+
 
 def create(args, line):
     global g_cursor, g_conn
@@ -313,9 +424,15 @@ def create(args, line):
     g_prev_create_statement_column_names = str(local_column_names).replace("'","").replace("[","(").replace("]",")")
     
     remote_column_names = None
+
+    is_contains_geom_col = False
     
     try:
         dprint("create sqlstr: "+sqlstr)
+        if g_is_postgre:
+            sqlstr = sqlstr.replace('"geom" bytea','"geom" geometry',1)
+            dprint("create sqlstr mod postgis geom: "+sqlstr)
+            is_contains_geom_col = True
         ret = None
         # use with for auto rollback() on g_conn on expected fails like already exists
         with g_conn as c:
@@ -413,8 +530,11 @@ def create(args, line):
         sqlite3 azqdata.db -list -newline "|" -separator "," ".out c:\\azq\\azq_report_gen\\azm_db_merge\\logs.csv" "select * from logs"
         """
 
-        #TODO: get col list, and hex(col) for blob coulumns
+        # get col list, and hex(col) for blob coulumns
 
+        geom_col_index = -1
+
+        i = 0
         col_select = ""
         first = True
         #print "local_columns: ",local_columns
@@ -425,15 +545,17 @@ def create(args, line):
                 first = False
             else:
                 col_select = col_select + ","
+                
             pre = " "
             post = ""
             if col_type == "bytea" or col_type == "BLOB":
                 pre = " hex("
                 post = ")"
-                
+                if col_name == "geom":
+                    geom_col_index = i                
             col_select = col_select + pre + col_name + post
             #print "col_select: ",col_select
-            
+            i = i + 1
                 
         if g_is_ms:
             ret = call(
@@ -466,15 +588,20 @@ def create(args, line):
             table_dump_fp_adj = table_dump_fp + "_adj.csv"
             of = open(table_dump_fp,"r")
             nf = open(table_dump_fp_adj,"w")
+
             while True:
                 ofl = of.readline()
                 ofl = ofl.replace(',""',',')
+
+                ofl = find_and_conv_spatialite_blob_to_wkb(ofl)
+                
                 if ofl == "":
                     break
                 nf.write(ofl)
                 #nf.write('\n')
             nf.close()
             of.close()
+
             table_dump_fp = table_dump_fp_adj
 
         dprint("dump table: "+table_name+" for bulk insert ret: "+str(ret))
@@ -562,7 +689,7 @@ def create(args, line):
                 table_dump_fp
             )
         
-        # dprint("START bulk insert sqlstr: "+sqlstr)
+        dprint("START bulk insert sqlstr: "+sqlstr)
         g_exec_buf.append(sqlstr)
         # print("DONE bulk insert - nrows inserted: "+str(ret.rowcount))
     

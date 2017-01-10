@@ -1,8 +1,12 @@
 * import to postgres
-  * pg geom spatialite to wkb
   * test alter add col
 
-* mssql geom wkb
+* mssql geom wkb?
+
+* option to skip geom col insert from non-location tables
+
+* azm_db_merge pre-import hook (to create/adj stuff inside sqlite db
+   of azm) back into sqlite before import
 
 * test postgre on windows
 

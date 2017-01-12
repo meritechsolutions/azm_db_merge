@@ -10,6 +10,8 @@ from debug_helpers import dprint
 import azm_db_constants
 from subprocess import call
 import os
+import sys
+import traceback
 
 # global vars
 g_is_postgre = False
@@ -123,7 +125,31 @@ def connect(args):
             else:
                 print("FATAL: CREATE EXTENSION postgis - failed - please make sure postgis is correctly installed.")
                 raise e
-       
+            
+    if g_is_ms:
+        try:
+            # set 'f_table_name' to unique so we can blindly insert table_name:geom (on create handlers) to it without checking (let mssql check)
+            ret = g_cursor.execute("""
+            CREATE TABLE geometry_columns (f_table_name VARCHAR(256) NOT NULL UNIQUE,f_geometry_column VARCHAR(256) NOT NULL,type VARCHAR(30) NOT NULL,coord_dimension INTEGER NOT NULL,srid INTEGER,spatial_index_enabled INTEGER NOT NULL);
+            """)
+            print "created qgis table: geometry_columns"
+        except Exception as e:
+            pass
+        
+        try:
+            # below execute would raise an exception if it is already created
+            ret = g_cursor.execute("""
+            CREATE TABLE spatial_ref_sys (srid INTEGER NOT NULL PRIMARY KEY,auth_name VARCHAR(256) NOT NULL,auth_srid INTEGER NOT NULL,ref_sys_name VARCHAR(256),proj4text VARCHAR(2048) NOT NULL);            
+            """)
+            print "created qgis table: spatial_ref_sys"
+            # if control reaches here means the table didn't exist (table was just created and is empty) so insert wgs84 into it... 
+            ret = g_cursor.execute("""
+            INSERT INTO "spatial_ref_sys" VALUES(4326,'epsg',4326,'WGS 84','+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs');
+            """)
+            print "added wgs84 to qgis table: spatial_ref_sys"        
+        except Exception as e:
+            pass
+
 
     return True
 
@@ -138,7 +164,7 @@ def check_if_already_merged(args, log_ori_file_name):
     try:
         print "checking if this log has already been imported/merged: "+log_ori_file_name
         # select log_ori_file_name from logs where log_ori_file_name like '358096071732800 16_11_2016 17.14.15.azm'
-        sqlstr = "select * from \"logs\" where \"log_ori_file_name\" like ?"
+        sqlstr = "select \"log_hash\" from \"logs\" where \"log_ori_file_name\" like ?"
         if g_is_postgre:
             sqlstr = sqlstr.replace("?","%s")
         dprint("cmd: "+sqlstr)
@@ -171,14 +197,15 @@ def check_if_already_merged(args, log_ori_file_name):
                         
             if (args['unmerge']):
                 
-                dprint("um0")
+                dprint("um0: row: "+str(row))
 
                 if g_is_postgre or g_is_ms:
                     dprint("upg 0")
                     # row is a tuple - make it a dict
                     dprint("upg 01")
-                    cols = get_remote_columns(args,'logs')
-                    dprint("upg 1")
+                    # now we only need 'log_hash' to unmerge and the used odbc cant parse geom too - cols = get_remote_columns(args,'logs')
+                    cols = [['log_hash', 'bigint']]
+                    dprint("upg 1: cols: "+str(cols))
                     drow = {}
                     i = 0
                     for col in cols:
@@ -208,6 +235,9 @@ def check_if_already_merged(args, log_ori_file_name):
             print "looks like this is the first-time log import - no table named logs exists yet - ok..."
             pass # first time import - no table named logs exists yet
         else:
+            type_, value_, traceback_ = sys.exc_info()
+            exstr = traceback.format_exception(type_, value_, traceback_)
+            print "re-raise exception e - ",exstr
             raise e
         
     return False
@@ -279,7 +309,7 @@ def find_and_conv_spatialite_blob_to_wkb(csv_line):
     dprint("csv_line spatialite_geom_part: "+part)
 
     spatialite_geom_contents = ""
-    if part[120] == ',':
+    if (g_is_postgre and part[120] == ',') or (g_is_ms and part[120] == '\t'):
         spatialite_geom_contents = part[0:120]
     else:
         dprint("check of spatialite_geom_part - failed - abort")
@@ -332,32 +362,58 @@ def find_and_conv_spatialite_blob_to_wkb(csv_line):
 
     Therefore, for "Point" we need from spatialite blob parts:
     endian, CLASS_TYPE, POINT
+    
+    
+    
     """
     # spatialite blob point size is 60 bytes = 120 chars in hex - as in above example and starts with 00
     if len(spatialite_geom_contents) == 120 and spatialite_geom_contents[0] == '0' and spatialite_geom_contents[1] == '0':
         endian = spatialite_geom_contents[2:4] # 2 + len 2
-        """
-        old code: class_type = spatialite_geom_contents[78:86] # 78 + 8
+        class_type = "<unset>"
+        if g_is_postgre:
+            """
+            old code: class_type = spatialite_geom_contents[78:86] # 78 + 8
 
-        change class_type to 'point' BITWISE_OR SRID flag as per https://trac.osgeo.org/postgis/browser/trunk/doc/ZMSgeoms.txt
-       
-        "
-        wkbSRID = 0x20000000
-        If the SRID flag is set it's value is encoded as a 4byte integer
-	right after the type integer.
-        "
-
-        so our class is pont | wkbSRID = 0x20000001 (little endian 32: 01000020)
-
-        then add srid "right after the type integer"
-        our srid = 4326 = 0x10E6 (little endian 32: E6100000)
-        
-        therefore, class_type_point_with_srid_wgs84 little_endian is 01000020E6100000
-
-        """
-        class_type_point_with_srid_wgs84 = "01000020E6100000"
+            change class_type to 'point' BITWISE_OR SRID flag as per https://trac.osgeo.org/postgis/browser/trunk/doc/ZMSgeoms.txt
+           
+            "
+            wkbSRID = 0x20000000
+            If the SRID flag is set it's value is encoded as a 4byte integer
+        right after the type integer.
+            "
+    
+            so our class is pont | wkbSRID = 0x20000001 (little endian 32: 01000020)
+    
+            then add srid "right after the type integer"
+            our srid = 4326 = 0x10E6 (little endian 32: E6100000)
+            
+            therefore, class_type_point_with_srid_wgs84 little_endian is 01000020E6100000
+    
+            """
+    
+            class_type = "01000020E6100000"
+        elif g_is_ms:
+            class_type = ""
+            
         point = spatialite_geom_contents[86:118] # 86 + 16 + 16
-        wkb = endian + class_type_point_with_srid_wgs84 + point
+        wkb = ""
+        if g_is_postgre:
+            wkb = endian + class_type + point
+        if g_is_ms:
+            
+            """
+            https://msdn.microsoft.com/en-us/library/ee320529.aspx
+            
+            0xE6100000 01 0C 0000000000001440 0000000000002440
+            This string is interpreted as shown in the following table.
+            Binary value Description
+            E6100000 SRID = 4326
+            01 Version = 1
+            0C Serialization Properties = V + P (geometry is valid, single point)
+            0000000000001440 X = 5
+            0000000000002440 Y = 10
+            """
+            wkb = "E6100000010C"+point
         dprint("wkb: "+wkb)
         csv_line = csv_line.replace(spatialite_geom_contents,wkb,1)
     else:
@@ -429,10 +485,29 @@ def create(args, line):
     
     try:
         dprint("create sqlstr: "+sqlstr)
+        
         if g_is_postgre:
             sqlstr = sqlstr.replace('"geom" bytea','"geom" geometry',1)
             dprint("create sqlstr mod postgis geom: "+sqlstr)
-            is_contains_geom_col = True
+            is_contains_geom_col = True            
+            # postgis automatically creates/maintains "geometry_columns" 'view'
+            
+        if g_is_ms:
+            sqlstr = sqlstr.replace('"geom" varbinary(MAX)','"geom" geometry',1)
+            dprint("create sqlstr mod mssql geom: "+sqlstr)
+            is_contains_geom_col = True            
+            # add this table:geom to 'geometry_columns' (table_name was set to UNIQUE so it will fail if already exists...
+            # example: INSERT INTO "geometry_columns" VALUES('events','geom','POINT',2,4326,0);
+            try:
+                insert_geomcol_sqlstr = "INSERT INTO \"geometry_columns\" VALUES('{}','geom','POINT',2,4326,0);".format(table_name)
+                dprint("insert_geomcol_sqlstr: "+insert_geomcol_sqlstr)
+                ret = g_cursor.execute(insert_geomcol_sqlstr)
+                print "insert this table:geom into geometry_columns done"
+            except Exception as e:
+                pass
+            
+    
+        
         ret = None
         # use with for auto rollback() on g_conn on expected fails like already exists
         with g_conn as c:
@@ -537,7 +612,7 @@ def create(args, line):
         i = 0
         col_select = ""
         first = True
-        #print "local_columns: ",local_columns
+        dprint("local_columns: "+str(local_columns))
         for col in local_columns:
             col_name = col[0]
             col_type = col[1]
@@ -548,14 +623,15 @@ def create(args, line):
                 
             pre = " "
             post = ""
-            if col_type == "bytea" or col_type == "BLOB":
+            if (g_is_postgre and col_type == "bytea") or (g_is_ms and col_type.startswith("varbinary")):
                 pre = " hex("
                 post = ")"
                 if col_name == "geom":
                     geom_col_index = i                
-            col_select = col_select + pre + col_name + post
-            #print "col_select: ",col_select
+            col_select = col_select + pre + col_name + post            
             i = i + 1
+        
+        dprint("col_select: "+col_select)
                 
         if g_is_ms:
             ret = call(
@@ -585,24 +661,26 @@ def create(args, line):
                 ], shell = False
             )
 
-            table_dump_fp_adj = table_dump_fp + "_adj.csv"
-            of = open(table_dump_fp,"r")
-            nf = open(table_dump_fp_adj,"w")
+        table_dump_fp_adj = table_dump_fp + "_adj.csv"
+        of = open(table_dump_fp,"r")
+        nf = open(table_dump_fp_adj,"wb") # wb required for windows so that \n is 0x0A - otherwise \n will be 0x0D 0x0A and doest go with our fmt file and only 1 row will be inserted per table csv in bulk inserts... 
 
-            while True:
-                ofl = of.readline()
+        while True:
+            ofl = of.readline()
+            if g_is_postgre:
                 ofl = ofl.replace(',""',',')
+            
+            ofl = find_and_conv_spatialite_blob_to_wkb(ofl)
+            
+            if ofl == "":
+                break
+            
+            nf.write(ofl)
+            #nf.write('\n')
+        nf.close()
+        of.close()
 
-                ofl = find_and_conv_spatialite_blob_to_wkb(ofl)
-                
-                if ofl == "":
-                    break
-                nf.write(ofl)
-                #nf.write('\n')
-            nf.close()
-            of.close()
-
-            table_dump_fp = table_dump_fp_adj
+        table_dump_fp = table_dump_fp_adj
 
         dprint("dump table: "+table_name+" for bulk insert ret: "+str(ret))
         
@@ -711,10 +789,13 @@ def sql_adj_line(line):
     sqlstr = sqlstr.replace("\" smallint", "\" bigint")
     sqlstr = sqlstr.replace("\" INT", "\" bigint")
 
-    if (g_is_postgre):
+    if g_is_postgre:
         sqlstr = sqlstr.replace("\" DATETIME", "\" timestamp")
         sqlstr = sqlstr.replace("\" datetime", "\" timestamp")
         sqlstr = sqlstr.replace("\" BLOB", "\" bytea")
+        
+    if g_is_ms:
+        sqlstr = sqlstr.replace("\" BLOB", "\" varbinary(MAX)")
         
     # default empty fields to text type
     # sqlstr = sqlstr.replace("\" ,", "\" text,")

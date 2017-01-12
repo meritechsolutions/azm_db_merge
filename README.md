@@ -89,6 +89,23 @@ So currently the merging of second, third files into the 'merged.db' would work
  but be reported as fail because there are no 'create if not exist' checks yet.
  Also, for sqlite3 target dbs - merging of a second file must be from the same
  azq app version only because there are no coulmn diff checks yet.
+ 
+Connecting from QGIS: Microsoft SQL Server
+-------------------------------------------
+- Make sure you already created the ODBC "Native Client" connection as described in SETUP.md first.
+- Try run azm_db_merge to merge/unmerge - check the output for "using connect_str:" like below line:
+using connect_str: DRIVER={SQL Server Native Client 11.0};SERVER=localhost;DATABASE=azqdb;UID=azqdblogin;PWD=pass
+  - This is your 'Provider/DSN' - starting from DRIVER=... so in above case it is: 
+    DRIVER={SQL Server Native Client 11.0};SERVER=localhost;DATABASE=azqdb;UID=azqdblogin;PWD=pass
+
+- In QGIS > Browser Panel > right-click 'MSSQL' > New Connection...
+- Enter "Provider/DSN" copied from your output as mentioned above.
+- Uncheck "Only look in geometry_columns metadata table"
+- Press 'List Databases' and 'Test Connection'
+- Press 'OK'
+- Double-click your new connection and wait a few seconds for it to list available tables that have plottable (geometry) columns.
+- Double-click on the tables you want to show and customize normally as in QGIS usage.
+
 
 
 License

@@ -127,10 +127,20 @@ def connect(args):
                 raise e
             
     if g_is_ms:
+        
+        ''' somehow not working - let qgis detect itself for now...
         try:
             # set 'f_table_name' to unique so we can blindly insert table_name:geom (on create handlers) to it without checking (let mssql check)
             ret = g_cursor.execute("""
-            CREATE TABLE geometry_columns (f_table_name VARCHAR(256) NOT NULL UNIQUE,f_geometry_column VARCHAR(256) NOT NULL,type VARCHAR(30) NOT NULL,coord_dimension INTEGER NOT NULL,srid INTEGER,spatial_index_enabled INTEGER NOT NULL);
+            CREATE TABLE [dbo].[geometry_columns](
+            [f_table_catalog] [varchar](50) NULL,
+            [f_table_schema] [varchar](50) NULL,
+            [f_table_name] [varchar](100) NULL UNIQUE,
+            [f_geometry_column] [varchar](50) NULL,
+            [coord_dimension] [int] NULL,
+            [srid] [int] NULL,
+            [geometry_type] [varchar](50) NULL
+            )
             """)
             print "created qgis table: geometry_columns"
         except Exception as e:
@@ -149,7 +159,7 @@ def connect(args):
             print "added wgs84 to qgis table: spatial_ref_sys"        
         except Exception as e:
             pass
-
+        '''
 
     return True
 
@@ -496,17 +506,7 @@ def create(args, line):
             sqlstr = sqlstr.replace('"geom" varbinary(MAX)','"geom" geometry',1)
             dprint("create sqlstr mod mssql geom: "+sqlstr)
             is_contains_geom_col = True            
-            # add this table:geom to 'geometry_columns' (table_name was set to UNIQUE so it will fail if already exists...
-            # example: INSERT INTO "geometry_columns" VALUES('events','geom','POINT',2,4326,0);
-            try:
-                insert_geomcol_sqlstr = "INSERT INTO \"geometry_columns\" VALUES('{}','geom','POINT',2,4326,0);".format(table_name)
-                dprint("insert_geomcol_sqlstr: "+insert_geomcol_sqlstr)
-                ret = g_cursor.execute(insert_geomcol_sqlstr)
-                print "insert this table:geom into geometry_columns done"
-            except Exception as e:
-                pass
-            
-    
+           
         
         ret = None
         # use with for auto rollback() on g_conn on expected fails like already exists
@@ -691,6 +691,23 @@ def create(args, line):
         if (os.stat(table_dump_fp).st_size == 0):
             print "this table is empty..."
             return True
+        
+        # if control reaches here then the table is not empty
+        
+        if g_is_ms and is_contains_geom_col:
+            # add this table:geom to 'geometry_columns' (table_name was set to UNIQUE so it will fail if already exists...
+            """ somehow not working - let qgis detect itself for now...
+            try:
+                insert_geomcol_sqlstr = "INSERT INTO \"geometry_columns\" VALUES('azq','dbo','{}','geom',NULL,4326,'POINT');".format(table_name)
+                dprint("insert_geomcol_sqlstr: "+insert_geomcol_sqlstr)
+                ret = g_cursor.execute(insert_geomcol_sqlstr)
+                print "insert this table:geom into geometry_columns done"
+            except Exception as e:
+                estr = str(e)
+                dprint("insert this table:geom into geometry_columns exception: "+estr)
+                pass
+            """
+            
         
         # create fmt format file for that table
         """        

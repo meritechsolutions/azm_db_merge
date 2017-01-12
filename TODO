@@ -1,9 +1,9 @@
+* option to skip geom col insert from non-location tables: '--insert_geometry_column_for_location_table_only'
+
+* add qgis screenshots, postgres, msssql
+
 * import to postgres
   * test alter add col
-
-* mssql geom wkb?
-
-* option to skip geom col insert from non-location tables
 
 * azm_db_merge pre-import hook (to create/adj stuff inside sqlite db
    of azm) back into sqlite before import

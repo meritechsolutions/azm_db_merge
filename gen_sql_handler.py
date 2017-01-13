@@ -560,6 +560,8 @@ def create(args, line):
             for col in local_columns:
                 col_name = col[0]
                 col_type = col[1]
+                if col_name == "geom":
+                    col_type = "geometry"
                 is_already_in_table = col_name in remote_column_names
                 dprint("local_col_name: " + col_name +
                        " col_type: " + col_type +
@@ -591,7 +593,8 @@ def create(args, line):
                 sqlstr = sql_adj_line(alter_str)
                 print "execute alter_str: " + sqlstr
                 ret = g_cursor.execute(sqlstr)
-                print "execute alter_str done"
+                print "execute alter_str done - commit now (commit required for alter otherwise the next COPY cmds wont work..."
+                g_conn.commit()
                 
                 # re-get remote cols
                 remote_columns = get_remote_columns(args, table_name)
@@ -710,7 +713,7 @@ def create(args, line):
         
         if g_is_ms and is_contains_geom_col:
             # add this table:geom to 'geometry_columns' (table_name was set to UNIQUE so it will fail if already exists...
-            """ somehow not working - let qgis detect itself for now...
+            """ somehow not working - let QGIS detect automatically itself for now...
             try:
                 insert_geomcol_sqlstr = "INSERT INTO \"geometry_columns\" VALUES('azq','dbo','{}','geom',NULL,4326,'POINT');".format(table_name)
                 dprint("insert_geomcol_sqlstr: "+insert_geomcol_sqlstr)

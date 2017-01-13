@@ -1,7 +1,7 @@
 * add qgis screenshots, postgres, msssql
 
 * import to postgres
-  * test alter add col
+  * test alter add nultiple col
 
 * azm_db_merge pre-import hook (to create/adj stuff inside sqlite db
    of azm) back into sqlite before import

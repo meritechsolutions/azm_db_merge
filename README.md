@@ -1,11 +1,11 @@
 azm_db_merge 
 ============
 
-Import all LTE/WCDMA/GSM test data (radio parameters, Layer-3 messages, etc) from [AZENQOS Android](http://www.azenqos.com) test logs (.azm files) into a target database for further Big data or radio analysis/research/reporting through your own SQL queries or [QGIS](http://www.qgis.org/).
+Import all LTE/WCDMA/GSM test data (radio parameters, Layer-3 messages, etc) from [AZENQOS Android](http://www.azenqos.com) test logs (.azm files) into 'PostgreSQL' or 'Microsoft SQL Server' for further Big data or radio analysis/research/reporting through your own SQL queries or [QGIS](http://www.qgis.org/).
 
 **Some usage screenshots:**
 
-Using QGIS to plot LTE RSRP from data merged into PostgreSQL+PostGIS:
+Using QGIS to plot LTE RSRP from data imported through 'azm_db_merge' into PostgreSQL+PostGIS:
 ![](example_screenshots/qgis_plot_rsrp_from_azm_db_merge_postgres_postgis.png)
 
 Using pgadmin to query LTE RSRP:

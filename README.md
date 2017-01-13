@@ -114,7 +114,7 @@ Using QGIS with databases created by azm_db_merge
 
 *NOTE: You can also use QGIS to directly open the SQLlite 'azqdata.db' in each azm file too (without using azm_db_merge to merge it into a centralized database) - simply choose 'SpatiaLite' in QGIS's Browser Panel and locate the extracted 'azqdata.db' file you extracted from the azm (simply rename the .azm to .zip and unzip).*
 
-**PostgrSQL (+PostGIS)**
+**PostgreSQL (+PostGIS)**
 
 - In QGIS > Browser Panel > right-click 'PostGIS' > New Connection... and fill in your database info/credentials - example plot:
 ![](example_screenshots/qgis_plot_rsrp_from_azm_db_merge_postgres_postgis.png)
@@ -143,6 +143,17 @@ Using QGIS with databases created by azm_db_merge
 
 - Double-click on the tables you want to show and customize normally as in QGIS usage - example LTE RSRP plot:
 ![](example_screenshots/qgis_plot_rsrp_from_azm_db_merge_mssql.png)
+
+Special Thanks
+--------------
+
+- Special thanks to Mike H.C. Pan for his great suggestions, guidance that finally made us initiate this project. We'd also like to thank him for introducing and helping us get started with open-source GIS tools like QGIS, PostGIS, SpatiaLite and their usage.
+
+
+Authors
+-------
+
+- Kasidit Yusuf
 
 
 License

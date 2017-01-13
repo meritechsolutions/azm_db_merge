@@ -3,7 +3,19 @@ azm_db_merge
 
 Import all LTE/WCDMA/GSM test data (radio parameters, Layer-3 messages, etc) from [AZENQOS Android](http://www.azenqos.com) test logs (.azm files) into a target database for further Big data or radio analysis/research/reporting through your own SQL queries or [QGIS](http://www.qgis.org/).
 
-**Notes:**
+**Some usage screensshots:**
+
+Using QGIS to plit LTE RSRP from data merged into PostgreSQL+PostGIS:
+![](example_logs/pgadmin_query_lte_rsrp_sinr_from_azm_db_merge_postgres.png)
+
+Using pgadmin to query LTE RSRP:
+![](example_logs/qgis_plot_rsrp_from_azm_db_merge_postgres_postgis.png)
+
+Using pgadmin to query Layer-3 messages (the 'info' column contains the decoded L3 message text contents but they are multiline which pgadmin doesn't show - psql can show them though):
+![](example_logs/pgadmin_query_layer_3_signalling_from_azm_db_merge_postgres.png)
+
+
+**Some basic info on 'azm' files and accessing this data:**
 - A ".azm" (azenqos mobile test log) file is simply a renamed zip file so you can open/extract with any zip manager software to view the azqdata.db file with any SQLite3 browser program on PC. (If you don't see this file in your .azm logs, go to AZENQOS app > Settings > Enable Database Logging to enable this feature). For more info on the ".azm" file contents and simple data storage architecture (elements, events, messages) - please see the 'AZQ User Guide' database access section from link below:
 https://docs.google.com/document/d/18GZAgcs3jRFdWqfvAqmQicvYlXRk6D0WktqWmd5iwwo/edit#heading=h.6vk8shbpst4
 - Required AZENQOS Android app version (shown in top-right corner of main menu) is ver-3.0.579 or newer.
@@ -89,23 +101,42 @@ So currently the merging of second, third files into the 'merged.db' would work
  but be reported as fail because there are no 'create if not exist' checks yet.
  Also, for sqlite3 target dbs - merging of a second file must be from the same
  azq app version only because there are no coulmn diff checks yet.
+
  
-Connecting from QGIS: Microsoft SQL Server
--------------------------------------------
+Using QGIS with databases created by azm_db_merge
+-------------------------------------------------
+
+*NOTE: You can also use QGIS to directly open the SQLlite 'azqdata.db' in each azm file too (without using azm_db_merge to merge it into a centralized database) - simply choose 'SpatiaLite' in QGIS's Browser Panel and locate the extracted 'azqdata.db' file you extracted from the azm (simply rename the .azm to .zip and unzip).*
+
+**PostgrSQL (+PostGIS)**
+
+- In QGIS > Browser Panel > right-click 'PostGIS' > New Connection... and fill in your database info/credentials - example plot:
+![](example_logs/qgis_plot_rsrp_from_azm_db_merge_postgres_postgis.png)
+
+**Microsoft SQL Server**
+
 - Make sure you already created the ODBC "Native Client" connection as described in SETUP.md first.
+
 - Try run azm_db_merge to merge/unmerge - check the output for "using connect_str:" like below line:
-using connect_str: DRIVER={SQL Server Native Client 11.0};SERVER=localhost;DATABASE=azqdb;UID=azqdblogin;PWD=pass
+<pre>using connect_str: DRIVER={SQL Server Native Client 11.0};SERVER=localhost;DATABASE=azqdb;UID=azqdblogin;PWD=pass</pre>
   - This is your 'Provider/DSN' - starting from DRIVER=... so in above case it is: 
-    DRIVER={SQL Server Native Client 11.0};SERVER=localhost;DATABASE=azqdb;UID=azqdblogin;PWD=pass
+    <pre>DRIVER={SQL Server Native Client 11.0};SERVER=localhost;DATABASE=azqdb;UID=azqdblogin;PWD=pass</pre>
 
 - In QGIS > Browser Panel > right-click 'MSSQL' > New Connection...
-- Enter "Provider/DSN" copied from your output as mentioned above.
-- Uncheck "Only look in geometry_columns metadata table"
-- Press 'List Databases' and 'Test Connection'
-- Press 'OK'
-- Double-click your new connection and wait a few seconds for it to list available tables that have plottable (geometry) columns.
-- Double-click on the tables you want to show and customize normally as in QGIS usage.
 
+- Enter "Provider/DSN" copied from your output as mentioned above.
+
+- Uncheck "Only look in geometry_columns metadata table"
+![](example_logs/qgis_connect_mssql_example0.png)
+
+- Press 'List Databases' and 'Test Connection'
+
+- Press 'OK'
+
+- Double-click your new connection and wait a few seconds for it to list available tables that have plottable (geometry) columns.
+
+- Double-click on the tables you want to show and customize normally as in QGIS usage - example LTE RSRP plot:
+![](example_logs/qgis_plot_rsrp_from_azm_db_merge_mssql.png)
 
 
 License

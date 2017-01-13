@@ -147,7 +147,7 @@ Using QGIS with databases created by azm_db_merge
 Special Thanks
 --------------
 
-- Special thanks to Mike H.C. Pan for his great suggestions, guidance that finally made us initiate this project. We'd also like to thank him for introducing and helping us get started with open-source GIS tools like QGIS, PostGIS and SpatiaLite.
+- Special thanks to Mike H.C. Pan for his great suggestions and guidance that finally steered us towards initiating this project. We'd also like to thank him for introducing and helping us get started with open-source GIS tools like QGIS, PostGIS and SpatiaLite.
 
 
 Authors

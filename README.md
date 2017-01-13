@@ -6,13 +6,13 @@ Import all LTE/WCDMA/GSM test data (radio parameters, Layer-3 messages, etc) fro
 **Some usage screensshots:**
 
 Using QGIS to plit LTE RSRP from data merged into PostgreSQL+PostGIS:
-![](example_logs/pgadmin_query_lte_rsrp_sinr_from_azm_db_merge_postgres.png)
+![](example_screenshots/pgadmin_query_lte_rsrp_sinr_from_azm_db_merge_postgres.png)
 
 Using pgadmin to query LTE RSRP:
-![](example_logs/qgis_plot_rsrp_from_azm_db_merge_postgres_postgis.png)
+![](example_screenshots/qgis_plot_rsrp_from_azm_db_merge_postgres_postgis.png)
 
 Using pgadmin to query Layer-3 messages (the 'info' column contains the decoded L3 message text contents but they are multiline which pgadmin doesn't show - psql can show them though):
-![](example_logs/pgadmin_query_layer_3_signalling_from_azm_db_merge_postgres.png)
+![](example_screenshots/pgadmin_query_layer_3_signalling_from_azm_db_merge_postgres.png)
 
 
 **Some basic info on 'azm' files and accessing this data:**
@@ -111,7 +111,7 @@ Using QGIS with databases created by azm_db_merge
 **PostgrSQL (+PostGIS)**
 
 - In QGIS > Browser Panel > right-click 'PostGIS' > New Connection... and fill in your database info/credentials - example plot:
-![](example_logs/qgis_plot_rsrp_from_azm_db_merge_postgres_postgis.png)
+![](example_screenshots/qgis_plot_rsrp_from_azm_db_merge_postgres_postgis.png)
 
 **Microsoft SQL Server**
 
@@ -127,7 +127,7 @@ Using QGIS with databases created by azm_db_merge
 - Enter "Provider/DSN" copied from your output as mentioned above.
 
 - Uncheck "Only look in geometry_columns metadata table"
-![](example_logs/qgis_connect_mssql_example0.png)
+![](example_screenshots/qgis_connect_mssql_example0.png)
 
 - Press 'List Databases' and 'Test Connection'
 
@@ -136,7 +136,7 @@ Using QGIS with databases created by azm_db_merge
 - Double-click your new connection and wait a few seconds for it to list available tables that have plottable (geometry) columns.
 
 - Double-click on the tables you want to show and customize normally as in QGIS usage - example LTE RSRP plot:
-![](example_logs/qgis_plot_rsrp_from_azm_db_merge_mssql.png)
+![](example_screenshots/qgis_plot_rsrp_from_azm_db_merge_mssql.png)
 
 
 License

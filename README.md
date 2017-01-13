@@ -3,13 +3,13 @@ azm_db_merge
 
 Import all LTE/WCDMA/GSM test data (radio parameters, Layer-3 messages, etc) from [AZENQOS Android](http://www.azenqos.com) test logs (.azm files) into a target database for further Big data or radio analysis/research/reporting through your own SQL queries or [QGIS](http://www.qgis.org/).
 
-**Some usage screensshots:**
+**Some usage screenshots:**
 
-Using QGIS to plit LTE RSRP from data merged into PostgreSQL+PostGIS:
-![](example_screenshots/pgadmin_query_lte_rsrp_sinr_from_azm_db_merge_postgres.png)
+Using QGIS to plot LTE RSRP from data merged into PostgreSQL+PostGIS:
+![](example_screenshots/qgis_plot_rsrp_from_azm_db_merge_postgres_postgis.png)
 
 Using pgadmin to query LTE RSRP:
-![](example_screenshots/qgis_plot_rsrp_from_azm_db_merge_postgres_postgis.png)
+![](example_screenshots/pgadmin_query_lte_rsrp_sinr_from_azm_db_merge_postgres.png)
 
 Using pgadmin to query Layer-3 messages (the 'info' column contains the decoded L3 message text contents but they are multiline which pgadmin doesn't show - psql can show them though):
 ![](example_screenshots/pgadmin_query_layer_3_signalling_from_azm_db_merge_postgres.png)

@@ -1,5 +1,3 @@
-* option to skip geom col insert from non-location tables: '--insert_geometry_column_for_location_table_only'
-
 * add qgis screenshots, postgres, msssql
 
 * import to postgres

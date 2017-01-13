@@ -441,9 +441,13 @@ def create(args, line):
     global g_is_ms, g_is_postgre
 
     g_prev_create_statement_column_names = None
-    
+
     line_adj = sql_adj_line(line)
     table_name = get_table_name(line_adj)
+
+    if args['import_geom_column_in_location_table_only'] and table_name != "location":
+        line_adj = sql_adj_line(line.replace(',"geom" BLOB','',1))
+
     
     if (g_unmerge_logs_row is not None):
         print "### unmerge mode - delete all rows for this azm in table: "+table_name
@@ -483,8 +487,18 @@ def create(args, line):
         dprint("splitted: "+str(splitted))
         col_name = splitted[1]
         col_type = splitted[2].strip()                
-        local_columns.append([col_name, col_type])
-        local_column_names.append(col_name)
+
+        omit_col = False
+
+        """
+        import_geom_column_in_location_table_only feature already implemented at line_adj above
+        if args['import_geom_column_in_location_table_only'] and col_name == "geom" and table_name != "location":
+            omit_col = True
+        """
+            
+        if omit_col == False:
+            local_columns.append([col_name, col_type])
+            local_column_names.append(col_name)
     
     # args['prev_create_statement_column_names'] 
     g_prev_create_statement_column_names = str(local_column_names).replace("'","").replace("[","(").replace("]",")")

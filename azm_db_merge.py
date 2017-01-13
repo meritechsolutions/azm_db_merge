@@ -121,6 +121,14 @@ def parse_cmd_args():
                         help="""List tables to "import only these tables". Default tables 'logs,' are always imported.""",
                         default='')
 
+    parser.add_argument('--import_geom_column_in_location_table_only',
+                        action='store_true',
+                        help="""Omit 'geom' geometry column in all tables except the 'location' table.
+                        By default, all tables contain the 'geom' geometry column for convenient use with QGIS.
+                        However, all other tables have 'pos_id' that can be used with 'log_hash' to join/match with the 'location' table manually
+                        (or as a view) if user decides to avoid this redundant data.""",
+                        default=False)
+
     
     args = vars(parser.parse_args())
     return args

@@ -24,8 +24,6 @@ https://docs.google.com/document/d/18GZAgcs3jRFdWqfvAqmQicvYlXRk6D0WktqWmd5iwwo/
 https://docs.google.com/spreadsheets/d/1ddl-g_qyoMYLF8PMkjrYPrpXusdinTZxsWLQOzJ6xu8/edit?usp=sharing
 - The Layer-3 messages are in the 'signalling' table and the events are in the 'events' table.
 
-Please follow [SETUP.md](SETUP.md) to setup all requirements/dependencies first.
-
 For a full list of options plesase use cmd:
 python azm_db_merge.py --help
 
@@ -37,6 +35,14 @@ The current azm_db_merge support for PostgreSQL and Microsoft SQL Server impleme
 - prevent duplicate .azm imports.
 - unmerge support.
 - merge/unmerge transactions are atomic.
+
+Setup
+-----
+
+Download or use git to clone this repository:
+<pre>git clone https://github.com/freewillfx-azenqos/azm_db_merge.git</pre>
+
+Please follow [SETUP.md](SETUP.md) to setup all requirements/dependencies first then follow the below 'Generic usage' section.
 
 
 Generic usage

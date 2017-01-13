@@ -13,11 +13,15 @@ Setup instructions
 
 - Install other dependencies:
   - Ubuntu:
+    *for PostgreSQL:
     sudo pip install psycopg2==2.6.1
+    *for MSSQL - not tested on Ubuntu though:*
     sudo apt-get install unixodbc-dev
     sudo pip install pyodbc
   - Windows:
+    *for PostgreSQL - not tested on Windows though:
     pip install psycopg2==2.6.1
+    *for MSSQL:*
     pip install pyodbc
   
 Next, except for merging into sqlite3 databases - you need to configure

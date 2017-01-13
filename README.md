@@ -5,7 +5,7 @@ Import all LTE/WCDMA/GSM test data (radio parameters, Layer-3 messages, etc) fro
 
 **Some usage screenshots:**
 
-Using QGIS to plot LTE RSRP from data imported through 'azm_db_merge' into PostgreSQL+PostGIS:
+Using QGIS to plot LTE RSRP from data imported using 'azm_db_merge' into PostgreSQL+PostGIS:
 ![](example_screenshots/qgis_plot_rsrp_from_azm_db_merge_postgres_postgis.png)
 
 Using pgadmin to query LTE EARFCN, RSRP, SINR and their timestamps along with position in 'geometry POINT format':

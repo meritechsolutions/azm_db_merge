@@ -167,8 +167,6 @@ Special Thanks
 
 - Thanks to [PostgreSQL](https://www.postgresql.org/) for their advanced, fast, powerful DBMS.
 
-- Thanks to [PostgreSQL](https://www.postgresql.org/) for their advanced, fast, powerful DBMS.
-
 - Thanks to Microsoft for providing [SQL Server 2014 Developer Edition for FREE](https://blogs.technet.microsoft.com/dataplatforminsider/2016/03/31/microsoft-sql-server-developer-edition-is-now-free/).
 
 

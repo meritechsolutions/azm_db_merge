@@ -119,7 +119,7 @@ So currently the merging of second, third files into the 'merged.db' would work
 Using QGIS with databases created by azm_db_merge
 -------------------------------------------------
 
-*NOTE: You can also use QGIS to directly open the SQLlite 'azqdata.db' in each azm file too (without using azm_db_merge to merge it into a centralized database) - simply choose 'SpatiaLite' in QGIS's Browser Panel and locate the extracted 'azqdata.db' file you extracted from the azm (simply rename the .azm to .zip and unzip).*
+*NOTE: You can also use QGIS to directly open the [SQLite](https://sqlite.org/) 'azqdata.db' (and query it with any SQLite browser) in each azm file too (without using azm_db_merge to merge it into a centralized database) - simply choose 'SpatiaLite' in QGIS's Browser Panel and locate the extracted 'azqdata.db' file you extracted from the azm (simply rename the .azm to .zip and unzip).*
 
 **PostgreSQL (+PostGIS)**
 
@@ -162,6 +162,14 @@ Special Thanks
 - Thanks to the [psycopg2](http://initd.org/psycopg/) project for providing simple, stable, fast PostgreSQL access.
 
 - Thanks to the [pyodbc](https://mkleehammer.github.io/pyodbc/) project for providing simple, stable, fast ODBC (to Microsoft SQL Server) access.
+
+- Thanks to [SQLite](https://sqlite.org/) for their fast, light, powerful DBMS.
+
+- Thanks to [PostgreSQL](https://www.postgresql.org/) for their advanced, fast, powerful DBMS.
+
+- Thanks to [PostgreSQL](https://www.postgresql.org/) for their advanced, fast, powerful DBMS.
+
+- Thanks to Microsoft for providing [SQL Server 2014 Developer Edition for FREE](https://blogs.technet.microsoft.com/dataplatforminsider/2016/03/31/microsoft-sql-server-developer-edition-is-now-free/).
 
 
 License

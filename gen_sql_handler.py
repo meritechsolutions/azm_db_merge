@@ -511,13 +511,11 @@ def create(args, line):
         dprint("create sqlstr: "+sqlstr)
         
         if g_is_postgre:
-            sqlstr = sqlstr.replace('"geom" bytea','"geom" geometry',1)
             dprint("create sqlstr mod postgis geom: "+sqlstr)
             is_contains_geom_col = True            
             # postgis automatically creates/maintains "geometry_columns" 'view'
             
         if g_is_ms:
-            sqlstr = sqlstr.replace('"geom" varbinary(MAX)','"geom" geometry',1)
             dprint("create sqlstr mod mssql geom: "+sqlstr)
             is_contains_geom_col = True            
            
@@ -560,8 +558,6 @@ def create(args, line):
             for col in local_columns:
                 col_name = col[0]
                 col_type = col[1]
-                if col_name == "geom":
-                    col_type = "geometry"
                 is_already_in_table = col_name in remote_column_names
                 dprint("local_col_name: " + col_name +
                        " col_type: " + col_type +
@@ -640,7 +636,7 @@ def create(args, line):
                 
             pre = " "
             post = ""
-            if (g_is_postgre and col_type == "bytea") or (g_is_ms and col_type.startswith("varbinary")):
+            if col_type == "geometry" or (g_is_postgre and col_type == "bytea") or (g_is_ms and col_type.startswith("varbinary")):
                 pre = " hex("
                 post = ")"
                 if col_name == "geom":
@@ -822,6 +818,8 @@ def sql_adj_line(line):
 
     sqlstr = sqlstr.replace("\" smallint", "\" bigint")
     sqlstr = sqlstr.replace("\" INT", "\" bigint")
+
+    sqlstr = sqlstr.replace('"geom" BLOB','"geom" geometry',1)
 
     if g_is_postgre:
         sqlstr = sqlstr.replace("\" DATETIME", "\" timestamp")

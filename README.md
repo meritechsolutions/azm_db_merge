@@ -144,16 +144,17 @@ Using QGIS with databases created by azm_db_merge
 - Double-click on the tables you want to show and customize normally as in QGIS usage - example LTE RSRP plot:
 ![](example_screenshots/qgis_plot_rsrp_from_azm_db_merge_mssql.png)
 
+
 Special Thanks
 --------------
 
-- Special thanks to Mike H.C. Pan for his great suggestions and guidance that finally steered us towards initiating this project. We'd also like to thank him for introducing and helping us get started with open-source GIS tools like QGIS, PostGIS and SpatiaLite.
+- Special thanks to Mike H.C. Pan for his great suggestions and guidance that finally steered us towards initiating this project. We'd also like to greatly thank him for introducing and helping us get started with open-source GIS tools like QGIS, PostGIS and SpatiaLite.
 
+- Thanks to the [Python](http://www.python.org) developers and community for providing this immensely powerful yet easy to lean/use and productive programming language.
 
-Authors
--------
+- Thanks to the [psycopg2](http://initd.org/psycopg/) project for providing simple, stable, fast PostgreSQL access.
 
-- Kasidit Yusuf
+- Thanks to the [pyodbc](https://mkleehammer.github.io/pyodbc/) project for providing simple, stable, fast ODBC (to Microsoft SQL Server) access.
 
 
 License
@@ -163,8 +164,16 @@ Copyright (C) 2016 Freewill FX Co., Ltd. All rights reserved.
 
 Released under the Apache-2.0 License. Please see [LICENSE](LICENSE) file.
 
+
 Contact
 -------
 
 Please contact support@azenqos.com for further info and other queries.
+
+
+Authors
+-------
+
+- Kasidit Yusuf
+
 

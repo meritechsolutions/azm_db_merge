@@ -36,10 +36,13 @@ The current azm_db_merge support for PostgreSQL and Microsoft SQL Server impleme
 Setup
 -----
 
-- Download or use git to clone this repository:
+- Use [git](https://git-scm.com/) to clone this repository:
 <pre>git clone https://github.com/freewillfx-azenqos/azm_db_merge.git</pre>
 
 - Please follow [SETUP.md](SETUP.md) to setup all requirements/dependencies first then follow the below 'Generic usage' section.
+
+- To update your local 'clone' anytime - you can run:
+<pre>git pull</pre>
 
 
 Generic usage

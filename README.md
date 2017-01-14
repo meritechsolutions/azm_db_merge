@@ -71,7 +71,7 @@ You need to specify the --target_db_type and its ODBC login settings too.
 
 After a successful merge, you will have a new row showing the imei, log_start_time and log_endtime of that azm - in the 'logs' table.
 
-All tables have the 'log_hash' showing 'from which log did this row in this table come from' - you find info about the log with matching 'log_hash' from the 'logs' table. The 'log_hash' can also be calculated - it is simply a 64-bit number: the high 32 bits is the "last 9 digits of the imei", the low 32 bits is the "log start time" in the format of "seconds since January 1, 1970".
+All tables have the 'log_hash' column showing 'from which log did this row in this table come from' - you can find info about the log by finding a row with matching 'log_hash' in the 'logs' table. The 'log_hash' can also be calculated - it is simply a 64-bit number: the high 32 bits is the "last 9 digits of the imei", the low 32 bits is the "log start time" in the format of "seconds since January 1, 1970".
 
 
 PostgreSQL examples:

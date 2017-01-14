@@ -24,9 +24,6 @@ https://docs.google.com/document/d/18GZAgcs3jRFdWqfvAqmQicvYlXRk6D0WktqWmd5iwwo/
 https://docs.google.com/spreadsheets/d/1ddl-g_qyoMYLF8PMkjrYPrpXusdinTZxsWLQOzJ6xu8/edit?usp=sharing
 - The Layer-3 messages are in the 'signalling' table and the events are in the 'events' table.
 
-For a full list of options plesase use cmd:
-python azm_db_merge.py --help
-
 The current azm_db_merge support for PostgreSQL and Microsoft SQL Server implementation (through pyodbc + "SQL Server Natve Client 11.0" ODBC driver)
  has full support for all azm_db_merge features:
 - auto table create
@@ -48,11 +45,18 @@ Setup
 Generic usage
 -------------
 
-Specify --azm_file <file.azm or folder containing multiple .azm files> to import the .azm's log database to a central Database. To 'unmerge' (remove all data from target db that cam from this .azm file) simply add --unmerge .
+Specify --azm_file <file.azm or folder containing multiple .azm files> to import the .azm's log database to a central Database.
 
 This operation will CREATE (if requireD), ALTER (if new columns are detected)
 and INSERT data from all tables in the 'azqdata.db' of the azm log file into
 the target (central) database.
+
+To 'unmerge' (remove all data from target db that cam from this .azm file) simply add --unmerge.
+
+For a the full list of usage and options - please run:
+<pre>python azm_db_merge.py --help</pre>
+
+Example commands are provided in .sh files for PostgreSQL and .bat files for MSSQL in sections further below.
 
 Note: For a list of all 'elements' (which form tables through binding to columns) of azm's azqdata.db please refer to:
 https://docs.google.com/spreadsheets/d/1ddl-g_qyoMYLF8PMkjrYPrpXusdinTZxsWLQOzJ6xu8/

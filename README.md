@@ -41,7 +41,7 @@ Setup
 
 - Please follow [SETUP.md](SETUP.md) to setup all requirements/dependencies first then follow the below 'Generic usage' section.
 
-- To update your local 'clone' anytime - you can run:
+- To update your local 'clone' - you can run:
 <pre>git pull</pre>
 
 

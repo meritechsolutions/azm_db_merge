@@ -26,7 +26,6 @@ import traceback
 
 
 # global vars
-g_process_start_time = time.time()
 g_target_db_types = ['postgresql','mssql','sqlite3']
 g_check_and_dont_create_if_empty = False
 
@@ -115,6 +114,13 @@ def parse_cmd_args():
                         help='''If specified, succssfully imported azm files would get moved to that folder.''',
                         default=None,
                         required=False)
+
+    parser.add_argument('--daemon_mode_rerun_on_folder_after_seconds',
+                        help='''If specified, azm_db_merge will block re-run on the same folder (specified with '--azm_file') again after the specified number of seconds.''',
+                        default=None,
+                        required=False)
+
+    
 
     
     args = vars(parser.parse_args())
@@ -599,45 +605,68 @@ g_create_function = getattr(mod, 'create')
 g_commit_function = getattr(mod, 'commit')
 g_close_function = getattr(mod, 'close')
 
+azm_file_is_folder = os.path.isdir(args['azm_file'])
 
-azm_files = []
-# check if supplied 'azm_file' is a folder - then iterate over all azms in that folder
-if (os.path.isdir(args['azm_file'])):
-    print "supplied azm_file is a directory - get a list of .azm files to process:"
-    dir = args['azm_file']
-    azm_files = glob.glob(os.path.join(dir,"*.azm"))
-else:
-    azm_files = [args['azm_file']]
+folder_daemon = not args['daemon_mode_rerun_on_folder_after_seconds'] is None
+folder_daemon_wait_seconds = 60
+if folder_daemon:
+    if not azm_file_is_folder:
+        raise "ABORT: --daemon_mode_rerun_on_folder_after_seconds specified but --azm_file is not a folder."
+    folder_daemon_wait_seconds = int(args['daemon_mode_rerun_on_folder_after_seconds'])
+    print "folder_daemon_wait_seconds: ",folder_daemon_wait_seconds
+    if folder_daemon_wait_seconds <= 0:
+        raise "ABORT: --daemon_mode_rerun_on_folder_after_seconds option must be greater than 0."
+ori_args = args
+
+while(True):
+
+    process_start_time = time.time()
+
+    args = ori_args.copy() # args gets modified by each run - especially ['azm_file'] gets changed - so we want to use a copy of the original_args here (otherwise args would get modified and we won't be able to restore to the original for daemon_mon
     
-nazm = len(azm_files)
-print "n_azm_files to process: {}".format(nazm)
-print "list of azm files to process: "+str(azm_files)
-iazm = 0
-ifailed = 0
-ret = -1
-had_errors = False
-
-for azm in azm_files:
-    iazm = iazm + 1
-    args['azm_file'] = azm
-    print "## START process azm {}/{}: '{}'".format(iazm, nazm, azm)
-    try: 
-        ret = process_azm_file(args)
-        if (ret != 0):
-            raise Exception("ABORT: process_azm_file failed with ret code: "+str(ret))        
-        print "## DONE process azm {}/{}: '{}' retcode {}".format(iazm, nazm, azm, ret)        
-    except Exception as e:
-        ifailed = ifailed + 1
-        had_errors = True
-        type_, value_, traceback_ = sys.exc_info()
-        exstr = traceback.format_exception(type_, value_, traceback_)
-        print "## FAILED: process azm {} failed with below exception:\n(start of exception)\n{}\n{}(end of exception)".format(azm,str(e),exstr)
-        if (args['folder_mode_stop_on_first_failure']):
-            print "--folder_mode_stop_on_first_failure specified - exit now."
-            exit(-9)
+    azm_files = []
+    # check if supplied 'azm_file' is a folder - then iterate over all azms in that folder
+    if azm_file_is_folder:
+        dir = args['azm_file']
+        print "supplied --azm_file: ",dir," is a directory - get a list of .azm files to process:"
         
-if (had_errors == False):
-    print "SUCCESS - operation completed successfully for all azm files (tatal: %d) - in %.03f seconds." % (iazm,  time.time() - g_process_start_time)
-else:
-    print "COMPLETED WITH ERRORS - operation completed but had encountered errors (tatal: %d, failed: %d) - in %.03f seconds - (use --folder_mode_stop_on_first_failure to stop on first failed azm file)." % (iazm,ifailed, time.time() - g_process_start_time)
-exit(ret)
+        azm_files = glob.glob(os.path.join(dir,"*.azm"))
+    else:
+        azm_files = [args['azm_file']]
+
+    nazm = len(azm_files)
+    print "n_azm_files to process: {}".format(nazm)
+    print "list of azm files to process: "+str(azm_files)
+    iazm = 0
+    ifailed = 0
+    ret = -1
+    had_errors = False
+
+    for azm in azm_files:
+        iazm = iazm + 1
+        args['azm_file'] = azm
+        print "## START process azm {}/{}: '{}'".format(iazm, nazm, azm)
+        try: 
+            ret = process_azm_file(args)
+            if (ret != 0):
+                raise Exception("ABORT: process_azm_file failed with ret code: "+str(ret))        
+            print "## DONE process azm {}/{}: '{}' retcode {}".format(iazm, nazm, azm, ret)        
+        except Exception as e:
+            ifailed = ifailed + 1
+            had_errors = True
+            type_, value_, traceback_ = sys.exc_info()
+            exstr = traceback.format_exception(type_, value_, traceback_)
+            print "## FAILED: process azm {} failed with below exception:\n(start of exception)\n{}\n{}(end of exception)".format(azm,str(e),exstr)
+            if (args['folder_mode_stop_on_first_failure']):
+                print "--folder_mode_stop_on_first_failure specified - exit now."
+                exit(-9)
+
+    if (had_errors == False):
+        print "SUCCESS - operation completed successfully for all azm files (tatal: %d) - in %.03f seconds." % (iazm,  time.time() - process_start_time)
+    else:
+        print "COMPLETED WITH ERRORS - operation completed but had encountered errors (tatal: %d, failed: %d) - in %.03f seconds - (use --folder_mode_stop_on_first_failure to stop on first failed azm file)." % (iazm,ifailed, time.time() - process_start_time)
+    if not folder_daemon:
+        exit(ret)
+    else:
+        print "*** folder_daemon mode: wait seconds: ",folder_daemon_wait_seconds
+        time.sleep(folder_daemon_wait_seconds)

@@ -70,20 +70,6 @@ def parse_cmd_args():
     
     parser.add_argument('--server_database',
                         help="Target database name.", required=True)
-        
-    
-    
-    parser.add_argument('--force_unmerge_logs_longer_than_24_hrs',
-                        action='store_true',
-                        help="""By default if log duration is > 24 hrs
-                        will not be allowed to --unmerge automatically - the cases
-                        might be from time change or some time bug that might
-                        accidentally remove other logs' data from this imei.
-                        Use this flag if you already verified/checked this
-                        .azm's db date and still want to unmerge""",
-                        default=False)
-    
-    
     
     parser.add_argument('--check_and_dont_create_if_empty',
                         action='store_true',
@@ -98,14 +84,6 @@ def parse_cmd_args():
                         help="Driver string for SQL Server",
                         default="{SQL Server Native Client 11.0}")
 
-    ''' now force bulk mode only - not fully tested non-bulk about atomicity - after unmerge        
-    parser.add_argument('--mssql_local_bulk_insert_mode_disable',
-                        action='store_true',
-                        help="""Set this to disable 'BULK INSERT' mode - 
-                        which is for local SQL Server only as it requires direct file access.""",
-                        default=False)
-                        '''
-    
     parser.add_argument('--dump_to_file_mode',
                         action='store_true',
                         help="""Set this to force full dump of sqlite3 db to .sql file
@@ -128,6 +106,10 @@ def parse_cmd_args():
                         However, all other tables have 'pos_id' that can be used with 'log_hash' to join/match with the 'location' table manually
                         (or as a view) if user decides to avoid this redundant data.""",
                         default=False)
+
+    parser.add_argument('--call_preprocess_func_in_module_before_import',
+                        help="""Specify a pyhon module (.py file) that has the function 'preprocess(dir_processing_azm)' to be called before importing the 'azqdata.db' file. If you have multiple modules/functions to preprocess - simply make and specify a module that calls all of them.""",
+                        default=None)
 
     
     args = vars(parser.parse_args())
@@ -401,6 +383,16 @@ def process_azm_file(args):
         dir_processing_azm = None
         dir_processing_azm = unzip_azm_to_tmp_folder(args)
         args['dir_processing_azm'] = dir_processing_azm
+
+        preprocess_module = args['call_preprocess_func_in_module_before_import']
+        if not preprocess_module is None:
+            preprocess_module = preprocess_module.replace(".py","",1)
+            print "get preprocess module: ", preprocess_module
+            importlib.import_module(preprocess_module)
+            mod = sys.modules[preprocess_module]
+            preprocess = getattr(mod, 'preprocess')
+            print "exec preprocess module > preprocess func"
+            preprocess(dir_processing_azm)
         
         check_azm_azq_app_version(args)
         
@@ -575,7 +567,7 @@ mod_name = mod_name + "_handler"
 print "### get module: ", mod_name
 importlib.import_module(mod_name)
 mod = sys.modules[mod_name]
-print "module dir: "+str(dir(mod))
+#print "module dir: "+str(dir(mod))
 
 g_connect_function = getattr(mod, 'connect')
 g_check_if_already_merged_function = getattr(mod, 'check_if_already_merged')

@@ -1,5 +1,3 @@
-* import to postgres
-  * test alter add multiple col
 
 * azm_db_merge pre-import hook (to create/adj stuff inside sqlite db
    of azm) back into sqlite before import
@@ -9,7 +7,7 @@
 
 * hook gen legacy tables for cur php/mysql session etc tables?
 
-* test col alter add in the middle,end etc: alter worked?
-  * contents import working normally?
+* import to postgres
+  * test alter add multiple col
  
 * lock tmp processing folder of azm to prevent concurrent execution on same azm?

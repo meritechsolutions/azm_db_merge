@@ -1,10 +1,4 @@
 
-* azm_db_merge pre-import hook (to create/adj stuff inside sqlite db
-   of azm) back into sqlite before import
-
-* option to move azm to target folder after import success
-* option to hook cmd on azm after import success
-
 * hook gen legacy tables for cur php/mysql session etc tables?
 
 * import to postgres

@@ -111,6 +111,11 @@ def parse_cmd_args():
                         help="""Specify a pyhon module (.py file) that has the function 'preprocess(dir_processing_azm)' to be called before importing the 'azqdata.db' file. If you have multiple modules/functions to preprocess - simply make and specify a module that calls all of them.""",
                         default=None)
 
+    parser.add_argument('--move_imported_azm_files_to_folder',
+                        help='''If specified, succssfully imported azm files would get moved to that folder.''',
+                        default=None,
+                        required=False)
+
     
     args = vars(parser.parse_args())
     return args
@@ -509,8 +514,18 @@ def process_azm_file(args):
         if (n_lines_parsed != 0):
             print( "\n=== SUCCESS - %s completed in %s seconds - tatal n_lines_parsed %d (not including bulk-inserted-table-content-lines)" % (operation, time.time() - proc_start_time, n_lines_parsed) )
             ret =  0
-        else:
             
+            mv_target_folder = args['move_imported_azm_files_to_folder']
+            if not mv_target_folder is None:
+                azm_fp = os.path.abspath(args['azm_file'])
+                target_fp = os.path.join(mv_target_folder,os.path.basename(azm_fp))
+                try:
+                    os.remove(target_fp)
+                except:
+                    pass
+                print "move_imported_azm_files_to_folder: mv {} to {}".format(azm_fp,target_fp)
+                os.rename(azm_fp, target_fp)
+        else:            
             raise("\n=== FAILED - %s - no lines parsed - tatal n_lines_parsed %d operation completed in %s seconds ===" % (operation, n_lines_parsed, time.time() - proc_start_time))
         
     
@@ -558,6 +573,15 @@ if only_tables == "logs,": # logs is default table - nothing added
 else:
     args['only_tables_on'] = True
 
+if not args['move_imported_azm_files_to_folder'] is None:
+    try:
+        os.mkdir(args['move_imported_azm_files_to_folder'])
+    except:
+        pass # ok - folder likely already exists...
+    if os.path.isdir(args['move_imported_azm_files_to_folder']):
+        pass
+    else:
+        raise Exception("ABORT: Can't create or access folder specified by --move_imported_azm_files_to_folder: "+str(args['move_imported_azm_files_to_folder']))
     
 mod_name = args['target_db_type']
 
@@ -574,7 +598,7 @@ g_check_if_already_merged_function = getattr(mod, 'check_if_already_merged')
 g_create_function = getattr(mod, 'create')
 g_commit_function = getattr(mod, 'commit')
 g_close_function = getattr(mod, 'close')
-    
+
 
 azm_files = []
 # check if supplied 'azm_file' is a folder - then iterate over all azms in that folder

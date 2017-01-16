@@ -1,7 +1,5 @@
 * logs table set log_hash to 'unique'
 
-* daemon_mode_wait_seconds
-
 * lock tmp processing folder of azm to prevent concurrent execution on same azm?
 
 * import to postgres

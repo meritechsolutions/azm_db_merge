@@ -445,6 +445,11 @@ def create(args, line):
     line_adj = sql_adj_line(line)
     table_name = get_table_name(line_adj)
 
+    if table_name == "logs":
+        uline = line.replace('"log_hash" BIGINT,','"log_hash" BIGINT UNIQUE,',1)
+        print "'logs' table cre - make log_hash unique for this table: ", uline
+        line_adj = sql_adj_line(uline)
+        
     if args['import_geom_column_in_location_table_only'] and table_name != "location":
         line_adj = sql_adj_line(line.replace(',"geom" BLOB','',1))
 

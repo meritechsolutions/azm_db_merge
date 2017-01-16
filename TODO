@@ -1,38 +1,15 @@
-* add qgis screenshots, postgres, msssql
-
 * import to postgres
-  * test alter add nultiple col
+  * test alter add multiple col
 
 * azm_db_merge pre-import hook (to create/adj stuff inside sqlite db
    of azm) back into sqlite before import
 
-* test postgre on windows
-
 * option to move azm to target folder after import success
 * option to hook cmd on azm after import success
 
-* option: ---only_tables "table1,table2"
-* option: ---except_tables "table1,table2"
-
-* QGIS integrate test - gen plot from sample logs imported in postgres
-
-* study posGIS
-
-* import to mysql
-* hook gen legacy tables for cur php/mysql session etc tables
-
-* android ren 'event' table to 'events', 'l3' to 'signalling', check
-   other tables...
-
-* make sure the |\n and \t dont get into col contents during bind or recov tag in log save
-
-* check ver at least 3.0.vvv of android ver that has above \t and | checks on all field binds
+* hook gen legacy tables for cur php/mysql session etc tables?
 
 * test col alter add in the middle,end etc: alter worked?
   * contents import working normally?
  
 * lock tmp processing folder of azm to prevent concurrent execution on same azm?
-
-* azm_report_gen plan for gen from other non-sqlite3 db (if logs has
-   multiple rows then activate merged report mode for each excel sheet)
-

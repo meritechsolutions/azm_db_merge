@@ -18,7 +18,7 @@ Using pgadmin to query Layer-3 messages (the 'info' column contains the decoded 
 **Some basic info on 'azm' files and accessing this data:**
 - A ".azm" (azenqos mobile test log) file is simply a renamed zip file so you can open/extract with any zip manager software to view the azqdata.db file with any SQLite3 browser program on PC. (If you don't see this file in your .azm logs, go to AZENQOS app > Settings > Enable Database Logging to enable this feature). For more info on the ".azm" file contents and simple data storage architecture (elements, events, messages) - please see the 'AZQ User Guide' database access section from link below:
 https://docs.google.com/document/d/18GZAgcs3jRFdWqfvAqmQicvYlXRk6D0WktqWmd5iwwo/edit#heading=h.6vk8shbpst4
-- Required AZENQOS Android app version (shown in top-right corner of main menu) is ver-3.0.579 or newer.
+- Required AZENQOS Android app version (shown in top-right corner of main menu) is ver-3.0.587 or newer.
 - Some logs are provided in the 'example_logs' folder.
 - The full list of the parameters and their tables is available at:
 https://docs.google.com/spreadsheets/d/1ddl-g_qyoMYLF8PMkjrYPrpXusdinTZxsWLQOzJ6xu8/edit?usp=sharing

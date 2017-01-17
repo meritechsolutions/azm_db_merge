@@ -1,6 +1,11 @@
-* logs table set log_hash to 'unique'
+* pg windows test
 
-* lock tmp processing folder of azm to prevent concurrent execution on same azm?
+* sqlite3 merge
+  * create if not exists
+  * alter
+  * insert specify cols
+
+* check for sqlite3 binary and ABORT at start if failed...
 
 * import to postgres
   * test alter add multiple col

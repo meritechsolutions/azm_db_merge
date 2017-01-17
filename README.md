@@ -104,16 +104,12 @@ sqlite3 import/merge .azm example
 In below example we import one azm named "mod.azm" into 'merged.db':
 
 <pre>
-python azm_db_merge.py --target_db_type sqlite3 --azm_file mod.azm --server_user "" --server_password "" --server_database "" --target_sqlite3_file merged.db
+azm_db_merge.py --target_db_type sqlite3 --azm_file azms_to_merge_folder --server_user "" --server_password "" --server_database "" --target_sqlite3_file merged.db
 </pre>
 
-(and then do this again for other .azm files to merge or specify the folder contaning all the azm files to merge once instead)
+(and you call like this again to merge other azm files to the same "merged.db" - if the merged.db exists it would just 'append' to it.)
 
-Note: the sqlite3 merge option is very early and does not have any CREATE, ALTER checks and no --unmerge support too.
-So currently the merging of second, third files into the 'merged.db' would work
- but be reported as fail because there are no 'create if not exist' checks yet.
- Also, for sqlite3 target dbs - merging of a second file must be from the same
- azq app version only because there are no coulmn diff checks yet.
+Note: the sqlite3 merge option is very early and does not have any ALTER checks (so merging of azm files from different app versions might fail - if their tables are different) and no --unmerge support too.
 
  
 Using QGIS with databases created by azm_db_merge

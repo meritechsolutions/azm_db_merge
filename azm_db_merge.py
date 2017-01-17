@@ -120,7 +120,12 @@ def parse_cmd_args():
                         default=None,
                         required=False)
 
-    
+    parser.add_argument('--debug',
+                        action='store_true',
+                        help="""Set debug (verbose) mode printing.
+                        """,
+                        default=False)
+
 
     
     args = vars(parser.parse_args())
@@ -166,9 +171,14 @@ def popen_sqlite3_dump(args):
 # Dump db to a text sql file
 def dump_db_to_sql(dir_processing_azm):
     dumped_sql_fp = "{}_dump.sql".format(args['file'])
-    cmd = "{} \"{}\" \".out {}\" \".dump\"".format(args['sqlite3_executable'],
-                                    args['file'], dumped_sql_fp.replace("\\", "\\\\"))
-    print "cmd: "+cmd
+    cmd = [
+        "{}".format(args['sqlite3_executable']),
+        "{}".format(args['file']),
+        ".out {}".format(dumped_sql_fp.replace("\\", "\\\\")),
+        ".dump"
+    ]
+     
+    print "cmd: ",cmd
     ret = call(cmd, shell=False)
     print "conv ret: "+str(ret)
     if (ret != 0):
@@ -384,11 +394,12 @@ def check_azm_azq_app_version(args):
     else:
         raise("Invalid azm_file: the azm file must be from AZENQOS apps with versions {}.{}.{} or newer.".format(MIN_APP_V0,MIN_APP_V1,MIN_APP_V2))
         
-
 def process_azm_file(args):
     proc_start_time = time.time()
     ret = -9
     use_popen_mode = True
+    sql_dump_file = None
+            
     
     try:
         dir_processing_azm = None
@@ -439,19 +450,58 @@ def process_azm_file(args):
         
         # sqlite3 merge is simple run .read on args['dumped_sql_fp']
         if args['target_db_type'] == "sqlite3":
+            is_target_exists = os.path.isfile(args['target_sqlite3_file'])
             print "sqlite3 - import to {} from {}".format(args['target_sqlite3_file'], dumped_sql_fp)
-            cmd = "{} \"{}\" \".read {}\"".format(args['sqlite3_executable'],
-                                            args['target_sqlite3_file'], dumped_sql_fp.replace("\\", "\\\\"))
-            print "cmd: "+cmd
+
+            dumped_sql_fp_adj = dumped_sql_fp + "_adj.sql"
+            of = open(dumped_sql_fp,"r")
+            nf = open(dumped_sql_fp_adj,"wb") # wb required for windows so that \n is 0x0A - otherwise \n will be 0x0D 0x0A and doest go with our fmt file and only 1 row will be inserted per table csv in bulk inserts... 
+
+            while True:
+                ofl = of.readline()
+                    
+                if ofl == "":
+                    break
+
+                ofl = ofl.replace("CREATE TABLE android_metadata (locale TEXT);","",1)
+                ofl = ofl.replace('CREATE TABLE "','CREATE TABLE IF NOT EXISTS "',1)
+
+                if ofl.startswith('INSERT INTO "android_metadata"'):
+                    ofl = ""
+                
+                if is_target_exists:
+                    # dont insert or create qgis tables
+                    if ofl.startswith("CREATE TABLE geometry_columns") or ofl.startswith("CREATE TABLE spatial_ref_sys") or ofl.startswith('INSERT INTO "spatial_ref_sys"') or ofl.startswith('INSERT INTO "geometry_columns"'):
+                        ofl = ""
+
+                nf.write(ofl)
+                #nf.write('\n')
+            nf.close()
+            of.close()
+
+            
+            cmd = [
+                args['sqlite3_executable'],
+                args['target_sqlite3_file'],
+                ".read {}".format(dumped_sql_fp_adj.replace("\\", "\\\\"))
+                ]
+            print "cmd: ",cmd
             ret = call(cmd, shell=False)
             print "import ret: "+str(ret)
             if (ret == 0):
                 print( "\n=== SUCCESS - import completed in %s seconds" % (time.time() - proc_start_time) )
-                cleanup_tmp_dir(dir_processing_azm)
+                if debug_helpers.debug == 1:
+                    print "debug mode keep_tmp_dir..."
+                else:
+                    cleanup_tmp_dir(dir_processing_azm)
                 return 0
             else:
-                cleanup_tmp_dir(dir_processing_azm)
-                raise("\n=== FAILED - ret %d - operation completed in %s seconds" % (ret, time.time() - proc_start_time))
+                if debug_helpers.debug == 1:
+                    print "debug mode keep_tmp_dir..."
+                else:
+                    cleanup_tmp_dir(dir_processing_azm)
+
+                raise Exception("\n=== FAILED - ret %d - operation completed in %s seconds" % (ret, time.time() - proc_start_time))
                 
             raise Exception("FATAL: sqlite3 mode merge process failed - invalid state")
             
@@ -481,7 +531,6 @@ def process_azm_file(args):
         ''' now we're connected and ready to import, open dumped file and hadle CREATE/INSERT
         operations for current target_type (DBMS type)'''
         
-        sql_dump_file = None
         if (use_popen_mode == False):
             sql_dump_file = open(dumped_sql_fp, 'r')
         
@@ -550,9 +599,13 @@ def process_azm_file(args):
             except:
                 pass
         else:
-            sql_dump_file.close()
+            try:
+                sql_dump_file.close()
+            except:
+                pass
         g_close_function(args)
         if debug_helpers.debug == 1:
+            print "debug mode keep_tmp_dir..."
             pass # keep files for analysis of exceptions in debug mode
         else:
             print "cleanup_tmp_dir..."
@@ -590,9 +643,15 @@ if not args['move_imported_azm_files_to_folder'] is None:
         raise Exception("ABORT: Can't create or access folder specified by --move_imported_azm_files_to_folder: "+str(args['move_imported_azm_files_to_folder']))
     
 mod_name = args['target_db_type']
+if args['debug']:
+    print "set_debug 1"
+    debug_helpers.set_debug(1)
+else:
+    print "set_debug 0"
+    debug_helpers.set_debug(0)
 
-if  mod_name in ['postgresql','mssql']:
-    mod_name = 'gen_sql'
+#if  mod_name in ['postgresql','mssql']:
+mod_name = 'gen_sql'
 mod_name = mod_name + "_handler"
 print "### get module: ", mod_name
 importlib.import_module(mod_name)

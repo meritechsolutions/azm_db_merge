@@ -632,20 +632,21 @@ try:
         print "sqlite3_executable working - OK"
     else:
         raise Exception("Secified (or default) --sqlite3_executable not working - ABORT")
-except Exception as e:
+except WindowsError as e:
     estr = str(e)
-    if "WindowsError" in estr and "The system cannot find the file specified" in estr:
+    print "windowserror - sqlite3 check exception estr: ",estr
+    if "The system cannot find the file specified" in estr:
         print "windows run: can't call specified sqlite3_executable - tring use 'where' to find it..."
         outstr = subprocess.check_output(
             ["cmd.exe",
              "/c",
              "where",
-             args['sqlite3_executable']
+             "sqlite3"
             ]
         )
-        print "where returned: ",outstr
+        print "where returned: ",outstr.strip()
         print "blindly using where return val as sqlite3 path..."
-        args['sqlite3_executable'] = outstr
+        args['sqlite3_executable'] = outstr.strip()
         cmd = [
             args['sqlite3_executable'],
             "--version"

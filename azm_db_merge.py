@@ -56,10 +56,12 @@ def parse_cmd_args():
     
     parser.add_argument('--target_sqlite3_file', 
                         help="Target sqlite3 file (to create) for merge", required=False)
-    
+
+    """ must be localhost only because now we're using BULK INSERT (or COPY) commands
     parser.add_argument('--server_url',
                         help="Target DBMS Server URL (domain or ip).",
                         required=False, default="localhost")
+    """
     
     parser.add_argument('--server_user',
                         help="Target login: username.", required=True)
@@ -228,6 +230,10 @@ def handle_sql3_dump_line(args, line):
     is_omit_table = False
    
     if line.startswith("CREATE TABLE "):
+
+        # in case user is using already 'sqlite3 merged azqdata.db' there will be the CREATE TABLE IF NOT EXISTS lines which we created - restore it...
+        line = line.replace("CREATE TABLE IF NOT EXISTS ","CREATE TABLE ",1)
+        
         table_name = line.split(" (")[0].replace("CREATE TABLE ","").replace("\"","")
         dprint("check table_name is_omit_table: "+table_name)
         is_omit_table = table_name in args['omit_tables_array']
@@ -619,7 +625,8 @@ def process_azm_file(args):
 print infostr
 
 args = parse_cmd_args()
-
+# must be localhost only because now we're using BULK INSERT (or COPY) commands
+args['server_url'] = "localhost"
 
 print "checking --sqlite3_executable: ",args['sqlite3_executable']
 try:

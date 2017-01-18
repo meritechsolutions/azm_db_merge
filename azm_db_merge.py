@@ -636,7 +636,7 @@ except WindowsError as e:
     estr = str(e)
     print "windowserror - sqlite3 check exception estr: ",estr
     if "The system cannot find the file specified" in estr:
-        print "windows run: can't call specified sqlite3_executable - tring use 'where' to find it..."
+        print "windows run: can't call specified sqlite3_executable - tring use 'where' to find the default 'sqlite3' executable."
         outstr = subprocess.check_output(
             ["cmd.exe",
              "/c",

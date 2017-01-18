@@ -350,7 +350,7 @@ def unzip_azm_to_tmp_folder(args):
         azm.extract("azqdata.db", dir_processing_azm)
         azm.close()
     except:
-        raise("Invalid azm_file: azm file does not contain azqdata.db database.")
+        raise Exception("Invalid azm_file: azm file does not contain azqdata.db database.")
         
     
     dprint("unzip_azm_to_tmp_folder 4")
@@ -392,7 +392,7 @@ def check_azm_azq_app_version(args):
     if (v0 >= MIN_APP_V0 and v1 >= MIN_APP_V1 and v2 >= MIN_APP_V2):
         pass
     else:
-        raise("Invalid azm_file: the azm file must be from AZENQOS apps with versions {}.{}.{} or newer.".format(MIN_APP_V0,MIN_APP_V1,MIN_APP_V2))
+        raise Exception("Invalid azm_file: the azm file must be from AZENQOS apps with versions {}.{}.{} or newer.".format(MIN_APP_V0,MIN_APP_V1,MIN_APP_V2))
         
 def process_azm_file(args):
     proc_start_time = time.time()
@@ -581,7 +581,7 @@ def process_azm_file(args):
                 print "move_imported_azm_files_to_folder: mv {} to {}".format(azm_fp,target_fp)
                 os.rename(azm_fp, target_fp)
         else:            
-            raise("\n=== FAILED - %s - no lines parsed - tatal n_lines_parsed %d operation completed in %s seconds ===" % (operation, n_lines_parsed, time.time() - proc_start_time))
+            raise Exception("\n=== FAILED - %s - no lines parsed - tatal n_lines_parsed %d operation completed in %s seconds ===" % (operation, n_lines_parsed, time.time() - proc_start_time))
         
     
     except Exception as e:
@@ -612,12 +612,52 @@ def process_azm_file(args):
             cleanup_tmp_dir(dir_processing_azm)
     
     return ret
+            
 
 #################### Program START
 
 print infostr
 
 args = parse_cmd_args()
+
+
+print "checking --sqlite3_executable: ",args['sqlite3_executable']
+try:
+    cmd = [
+        args['sqlite3_executable'],
+        "--version"
+    ]
+    ret = call(cmd, shell=False)
+    if ret == 0:
+        print "sqlite3_executable working - OK"
+    else:
+        raise Exception("Secified (or default) --sqlite3_executable not working - ABORT")
+except Exception as e:
+    estr = str(e)
+    if "WindowsError" in estr and "The system cannot find the file specified" in estr:
+        print "windows run: can't call specified sqlite3_executable - tring use 'where' to find it..."
+        outstr = subprocess.check_output(
+            ["cmd.exe",
+             "/c",
+             "where",
+             args['sqlite3_executable']
+            ]
+        )
+        print "where returned: ",outstr
+        print "blindly using where return val as sqlite3 path..."
+        args['sqlite3_executable'] = outstr
+        cmd = [
+            args['sqlite3_executable'],
+            "--version"
+        ]
+        ret = call(cmd, shell=False)
+        if ret == 0:
+            print "sqlite3_executable working - OK"
+        else:
+            raise Exception("Secified (or default) --sqlite3_executable not working - ABORT")
+    else:
+        raise e
+    
 
 omit_tables = "spatial_ref_sys,geometry_columns,"+args['exclude_tables']
 omit_tables_array = omit_tables.split(",")
@@ -670,11 +710,11 @@ folder_daemon = not args['daemon_mode_rerun_on_folder_after_seconds'] is None
 folder_daemon_wait_seconds = 60
 if folder_daemon:
     if not azm_file_is_folder:
-        raise "ABORT: --daemon_mode_rerun_on_folder_after_seconds specified but --azm_file is not a folder."
+        raise Exception("ABORT: --daemon_mode_rerun_on_folder_after_seconds specified but --azm_file is not a folder.")
     folder_daemon_wait_seconds = int(args['daemon_mode_rerun_on_folder_after_seconds'])
     print "folder_daemon_wait_seconds: ",folder_daemon_wait_seconds
     if folder_daemon_wait_seconds <= 0:
-        raise "ABORT: --daemon_mode_rerun_on_folder_after_seconds option must be greater than 0."
+        raise Exception("ABORT: --daemon_mode_rerun_on_folder_after_seconds option must be greater than 0.")
 ori_args = args
 
 while(True):

@@ -100,10 +100,10 @@ Please open example Windows bat files named below in a text editor:
   - [ex_mssql_remove_azm_folder.bat](ex_mssql_remove_azm_folder.bat)
 
 
-SQLite3 example:
-----------------
+SQLite example:
+---------------
 
-In below example we want to merge the sqlite3 'azqdata.db' from multiple azm files into a single sqlite3 file named 'merged.db':
+In below example we want to merge the sqlite3 'azqdata.db' files from multiple azm files into a single target sqlite3 file named 'merged.db':
 
 <pre>
 python azm_db_merge.py --target_db_type sqlite3 --azm_file azms_to_merge_folder --server_user "" --server_password "" --server_database "" --target_sqlite3_file merged.db

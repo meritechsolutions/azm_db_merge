@@ -39,6 +39,8 @@ Setup
 - Use [git](https://git-scm.com/) to clone this repository:
 <pre>git clone https://github.com/freewillfx-azenqos/azm_db_merge.git</pre>
 
+Note: For Windows users, to avoid some 'permission issues' (reported on Windows 10) we recommend to copy/clone to the root of the drive like 'c:\azm_db_merge\'.
+
 - Please follow [SETUP.md](SETUP.md) to setup all requirements/dependencies first then follow the below 'Generic usage' section.
 
 - To update your local 'clone' - you can run:
@@ -101,7 +103,7 @@ Please open example Windows bat files named below in a text editor:
 sqlite3 import/merge .azm example
 ---------------------------------
 
-In below example we import one azm named "mod.azm" into 'merged.db':
+In below example we want to merge the sqlite3 'azqdata.db' from multiple azm files into a single sqlite3 file named 'merged.db':
 
 <pre>
 python azm_db_merge.py --target_db_type sqlite3 --azm_file azms_to_merge_folder --server_user "" --server_password "" --server_database "" --target_sqlite3_file merged.db
@@ -110,10 +112,10 @@ python azm_db_merge.py --target_db_type sqlite3 --azm_file azms_to_merge_folder 
 (you can also run this cmd again on other azm folders/files to the same "merged.db" - if the merged.db exists it would just 'append' to it - just take care to not import the same azm files again as there are no duplicate checks in sqlite3 mode yet)
 
 Note:
-- The sqlite3 merge option is very early and still does not have a few features:
-- There are no 'column' checks - no auto ALTER support as in PostgreSQL yet. (so merging of azm files from different app versions might fail - if their tables are different).
-- The no --unmerge support too.
-- The are no 'already merged' checks in sqlite3 import mode yet. 
+The sqlite3 merge option is very early and still does not have a few features:
+  - There are no 'column' checks - no auto ALTER support as in PostgreSQL yet. (so merging of azm files from different app versions might fail - if their tables are different).
+  - There is no --unmerge support yet.
+  - The are no 'already merged' checks in sqlite3 merge mode yet. 
 
  
 Using QGIS with databases created by azm_db_merge

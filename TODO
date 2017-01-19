@@ -1,7 +1,3 @@
-* pg windows test
-
-* handle create table if not exists
-
 * sqlite3 merge
   * create if not exists
   * alter

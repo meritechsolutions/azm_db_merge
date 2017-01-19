@@ -100,8 +100,8 @@ Please open example Windows bat files named below in a text editor:
   - [ex_mssql_remove_azm_folder.bat](ex_mssql_remove_azm_folder.bat)
 
 
-sqlite3 import/merge .azm example
----------------------------------
+SQLite3 example:
+----------------
 
 In below example we want to merge the sqlite3 'azqdata.db' from multiple azm files into a single sqlite3 file named 'merged.db':
 

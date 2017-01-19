@@ -1,7 +1,7 @@
 azm_db_merge 
 ============
 
-Import all LTE/WCDMA/GSM test data (radio parameters, Layer-3 messages, etc) from [AZENQOS Android](http://www.azenqos.com) test logs (.azm files) into [PostgreSQL](https://www.postgresql.org/) or [Microsoft SQL Server](https://www.microsoft.com/en-us/sql-server/) for further Big data radio access network analysis/research/reporting through your own SQL queries and [QGIS](http://www.qgis.org/).
+Import all LTE/WCDMA/GSM test data (radio parameters, Layer-3 messages, etc) from [AZENQOS Android](http://www.azenqos.com) test logs (.azm files) into [PostgreSQL](https://www.postgresql.org/) or [Microsoft SQL Server](https://www.microsoft.com/en-us/sql-server/) for further Big data radio access network analysis/research/reporting through your own SQL queries and/or with [QGIS](http://www.qgis.org/).
 
 **Some usage screenshots:**
 

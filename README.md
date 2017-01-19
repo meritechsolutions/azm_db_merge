@@ -50,7 +50,7 @@ Note: For Windows users, to avoid some 'permission issues' (reported on Windows 
 Generic usage
 -------------
 
-Specify --azm_file <file.azm or folder containing multiple .azm files> to import the .azm's log database to a central Database.
+Specify --azm_file [file.azm or folder containing multiple .azm files] to import (merge) the 'azqdata.db' sqlite3 database zipped in each azm file into the specified target database.
 
 This operation will CREATE (if requireD), ALTER (if new columns are detected)
 and INSERT data from all tables in the 'azqdata.db' of the azm log file into

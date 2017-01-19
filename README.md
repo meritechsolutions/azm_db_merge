@@ -39,7 +39,7 @@ Setup
 - Use [git](https://git-scm.com/) to clone this repository:
 <pre>git clone https://github.com/freewillfx-azenqos/azm_db_merge.git</pre>
 
-Note: For Windows users, to avoid some 'permission issues' (reported on Windows 10) we recommend to copy/clone to the root of the drive like 'c:\azm_db_merge\'.
+Note: For Windows users, to avoid some 'permission issues' (reported on Windows 10) we recommend to copy/clone to the root of the drive like 'c:\azm_db_merge\' (running 'git clone' at 'c:\' would make the folder there).
 
 - Please follow [SETUP.md](SETUP.md) to setup all requirements/dependencies first then follow the below 'Generic usage' section.
 

@@ -1,3 +1,7 @@
+* check sqlite3 ver on both existing win and ubuntu - check min ver
+   and raise if not... debian case 3.7 didnt work with multi cmd
+   required to use
+
 * sqlite3 merge
   * create if not exists
   * alter

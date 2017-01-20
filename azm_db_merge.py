@@ -62,6 +62,12 @@ def parse_cmd_args():
                         help="Target DBMS Server URL (domain or ip).",
                         required=False, default="localhost")
     """
+
+    parser.add_argument('--docker_postgres_server_name',
+                        help="If azm_db_merge is running in a 'Docker' container and postgres+postgis is in another - use this to specify the server 'name'. NOTE: The azm file/folder path must be in a shared folder (with same the path) between this container and the postgres container as we're using the COPY command that requires access to a 'local' file on the postgres server.",
+                        required=False,
+                        default=None)
+
     
     parser.add_argument('--server_user',
                         help="Target login: username.", required=True)

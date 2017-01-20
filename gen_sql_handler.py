@@ -101,6 +101,8 @@ def connect(args):
                 args['server_user'],
             args['server_password']
                 )
+        if args['docker_postgres_server_name'] != None:
+            connect_str = "host="+args['docker_postgres_server_name']+" "+connect_str
         print "using connect_str: "+connect_str
         g_conn = psycopg2.connect(connect_str)
     if (g_conn is None):

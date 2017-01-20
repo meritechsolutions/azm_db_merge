@@ -4,7 +4,7 @@ Setup instructions
 - Install python 2.7
   - Windows: https://www.python.org/downloads/ - download 2.7.12, run installer,
   specify "add to PATH" during installer setup.
-  - Ubuntu/Debian: sudo apt-get install python2.7
+  - Ubuntu/Debian: sudo apt-get install python2.7 python2.7-dev
   
 - Install 'sqlite3' binary
   - Windows: Download/install/add folder of sqlite3.exe to

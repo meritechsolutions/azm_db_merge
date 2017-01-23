@@ -584,6 +584,10 @@ def process_azm_file(args):
             ret =  0
             
             mv_target_folder = args['move_imported_azm_files_to_folder']
+            
+            if not os.path.exists(mv_target_folder):
+                os.makedirs(mv_target_folder)
+
             if not mv_target_folder is None:
                 azm_fp = os.path.abspath(args['azm_file'])
                 target_fp = os.path.join(mv_target_folder,os.path.basename(azm_fp))

@@ -790,4 +790,6 @@ while(True):
         exit(ret)
     else:
         print "*** folder_daemon mode: wait seconds: ",folder_daemon_wait_seconds
-        time.sleep(folder_daemon_wait_seconds)
+        for i in range(0,folder_daemon_wait_seconds):
+            print "** folder_daemon mode: waiting ",i,"/",folder_daemon_wait_seconds," seconds"
+            time.sleep(1)

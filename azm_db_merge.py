@@ -13,6 +13,7 @@ Copyright: Copyright (C) 2016 Freewill FX Co., Ltd. All rights reserved.
 import subprocess
 from subprocess import call
 import sys
+import signal
 import argparse
 import importlib
 import time
@@ -624,11 +625,18 @@ def process_azm_file(args):
             cleanup_tmp_dir(dir_processing_azm)
     
     return ret
-            
+
+
+def sigterm_handler(_signo, _stack_frame):
+    print "azm_db_merge.py: received SIGTERM - exit(0) now..."
+    sys.exit(0)
+    return
 
 #################### Program START
 
 print infostr
+
+signal.signal(signal.SIGTERM, sigterm_handler)
 
 args = parse_cmd_args()
 # must be localhost only because now we're using BULK INSERT (or COPY) commands

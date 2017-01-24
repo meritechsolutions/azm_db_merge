@@ -363,6 +363,7 @@ def unzip_azm_to_tmp_folder(args):
         azm.extract("azqdata.db", dir_processing_azm)
         azm.close()
     except:
+        os.rmdir(dir_processing_azm) # cleanup
         raise Exception("Invalid azm_file: azm file does not contain azqdata.db database.")
         
     

@@ -586,7 +586,7 @@ def process_azm_file(args):
             
             mv_target_folder = args['move_imported_azm_files_to_folder']
             
-            if not os.path.exists(mv_target_folder):
+            if not mv_target_folder is None and not os.path.exists(mv_target_folder):
                 os.makedirs(mv_target_folder)
 
             if not mv_target_folder is None:

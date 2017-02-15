@@ -428,7 +428,7 @@ def process_azm_file(args):
             mod = sys.modules[preprocess_module]
             preprocess = getattr(mod, 'preprocess')
             print "exec preprocess module > preprocess func"
-            preprocess(dir_processing_azm)
+            preprocess(dir_processing_azm,args['azm_file'])
         
         check_azm_azq_app_version(args)
         

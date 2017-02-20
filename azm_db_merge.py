@@ -123,6 +123,14 @@ def parse_cmd_args():
                         help='''If specified, succssfully imported azm files would get moved to that folder.''',
                         default=None,
                         required=False)
+    
+
+    parser.add_argument('--move_failed_import_azm_files_to_folder',
+                        help='''If specified, failed-to-import azm files would get moved to that folder.''',
+                        default=None,
+                        required=False)
+
+    
 
     parser.add_argument('--daemon_mode_rerun_on_folder_after_seconds',
                         help='''If specified, azm_db_merge will block re-run on the same folder (specified with '--azm_file') again after the specified number of seconds.''',
@@ -407,7 +415,9 @@ def check_azm_azq_app_version(args):
         pass
     else:
         raise Exception("Invalid azm_file: the azm file must be from AZENQOS apps with versions {}.{}.{} or newer.".format(MIN_APP_V0,MIN_APP_V1,MIN_APP_V2))
-        
+
+    
+    
 def process_azm_file(args):
     proc_start_time = time.time()
     ret = -9
@@ -603,6 +613,25 @@ def process_azm_file(args):
         
     
     except Exception as e:
+        mv_target_folder = args['move_failed_import_azm_files_to_folder']            
+        if not mv_target_folder is None and not os.path.exists(mv_target_folder):
+            os.makedirs(mv_target_folder)            
+        if not mv_target_folder is None:
+            azm_fp = os.path.abspath(args['azm_file'])
+            target_fp = os.path.join(mv_target_folder,os.path.basename(azm_fp))
+            try:
+                os.remove(target_fp)
+            except:
+                pass
+            print "move_failed_import_azm_files_to_folder: mv {} to {}".format(azm_fp,target_fp)
+            try:
+                os.rename(azm_fp, target_fp)
+            except:
+                print "WARNING: move_failed_import_azm_files_to_folder failed"
+                pass
+
+
+        
         type_, value_, traceback_ = sys.exc_info()
         exstr = traceback.format_exception(type_, value_, traceback_)
         print "re-raise exception e - ",exstr

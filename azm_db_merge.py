@@ -119,6 +119,11 @@ def parse_cmd_args():
                         help="""Specify a pyhon module (.py file) that has the function 'preprocess(dir_processing_azm)' to be called before importing the 'azqdata.db' file. If you have multiple modules/functions to preprocess - simply make and specify a module that calls all of them.""",
                         default=None)
 
+    parser.add_argument('--dry',
+                        help="""Skip the target database procedure - designed for call_preprocess_func mode (without unzipping the azm) where real import is not required like using with legacy AzqGen.exe calls to import to legacy mysql db with legacy schemas.""",
+                        default='',
+                        required=False)
+
     parser.add_argument('--move_imported_azm_files_to_folder',
                         help='''If specified, succssfully imported azm files would get moved to that folder.''',
                         default=None,
@@ -416,7 +421,21 @@ def check_azm_azq_app_version(args):
     else:
         raise Exception("Invalid azm_file: the azm file must be from AZENQOS apps with versions {}.{}.{} or newer.".format(MIN_APP_V0,MIN_APP_V1,MIN_APP_V2))
 
-    
+def mv_azm_to_target_folder(args):
+    mv_target_folder = args['move_imported_azm_files_to_folder']
+
+    if not mv_target_folder is None:
+        if not os.path.exists(mv_target_folder):
+            os.makedirs(mv_target_folder)        
+        azm_fp = os.path.abspath(args['azm_file'])
+        target_fp = os.path.join(mv_target_folder,os.path.basename(azm_fp))
+        try:
+            os.remove(target_fp)
+        except:
+            pass
+        print "move_imported_azm_files_to_folder: mv {} to {}".format(azm_fp,target_fp)
+        os.rename(azm_fp, target_fp)
+
     
 def process_azm_file(args):
     proc_start_time = time.time()
@@ -427,10 +446,15 @@ def process_azm_file(args):
     
     try:
         dir_processing_azm = None
-        dir_processing_azm = unzip_azm_to_tmp_folder(args)
-        args['dir_processing_azm'] = dir_processing_azm
+
+        if len(args['dry']) > 0:
+            print "--dry mode - dont unzip azm for azqdata.db - let preprocess func handle itself"
+        else:
+            dir_processing_azm = unzip_azm_to_tmp_folder(args)
+            args['dir_processing_azm'] = dir_processing_azm
 
         preprocess_module = args['call_preprocess_func_in_module_before_import']
+        
         if not preprocess_module is None:
             preprocess_module = preprocess_module.replace(".py","",1)
             print "get preprocess module: ", preprocess_module
@@ -439,7 +463,12 @@ def process_azm_file(args):
             preprocess = getattr(mod, 'preprocess')
             print "exec preprocess module > preprocess func"
             preprocess(dir_processing_azm,args['azm_file'])
-        
+
+        if len(args['dry']) > 0:
+            print "--dry mode - end here"
+            mv_azm_to_target_folder(args)
+            return 0
+            
         check_azm_azq_app_version(args)
         
         g_check_and_dont_create_if_empty = args['check_and_dont_create_if_empty']
@@ -593,26 +622,14 @@ def process_azm_file(args):
         if (n_lines_parsed != 0):
             print( "\n=== SUCCESS - %s completed in %s seconds - tatal n_lines_parsed %d (not including bulk-inserted-table-content-lines)" % (operation, time.time() - proc_start_time, n_lines_parsed) )
             ret =  0
-            
-            mv_target_folder = args['move_imported_azm_files_to_folder']
-            
-            if not mv_target_folder is None and not os.path.exists(mv_target_folder):
-                os.makedirs(mv_target_folder)
-
-            if not mv_target_folder is None:
-                azm_fp = os.path.abspath(args['azm_file'])
-                target_fp = os.path.join(mv_target_folder,os.path.basename(azm_fp))
-                try:
-                    os.remove(target_fp)
-                except:
-                    pass
-                print "move_imported_azm_files_to_folder: mv {} to {}".format(azm_fp,target_fp)
-                os.rename(azm_fp, target_fp)
         else:            
             raise Exception("\n=== FAILED - %s - no lines parsed - tatal n_lines_parsed %d operation completed in %s seconds ===" % (operation, n_lines_parsed, time.time() - proc_start_time))
         
     
     except Exception as e:
+        type_, value_, traceback_ = sys.exc_info()
+        exstr = traceback.format_exception(type_, value_, traceback_)
+
         mv_target_folder = args['move_failed_import_azm_files_to_folder']            
         if not mv_target_folder is None and not os.path.exists(mv_target_folder):
             os.makedirs(mv_target_folder)            
@@ -621,21 +638,20 @@ def process_azm_file(args):
             target_fp = os.path.join(mv_target_folder,os.path.basename(azm_fp))
             try:
                 os.remove(target_fp)
-            except:
+            except Exception as x:
                 pass
+            
             print "move_failed_import_azm_files_to_folder: mv {} to {}".format(azm_fp,target_fp)
             try:
                 os.rename(azm_fp, target_fp)
-            except:
+            except Exception as x:
                 print "WARNING: move_failed_import_azm_files_to_folder failed"
                 pass
 
-
-        
-        type_, value_, traceback_ = sys.exc_info()
-        exstr = traceback.format_exception(type_, value_, traceback_)
+    
         print "re-raise exception e - ",exstr
         raise e
+    
     finally:
         print "cleanup start..."
         if (use_popen_mode):
@@ -650,7 +666,11 @@ def process_azm_file(args):
                 sql_dump_file.close()
             except:
                 pass
-        g_close_function(args)
+        try:
+            g_close_function(args)
+        except:
+            pass
+        
         if debug_helpers.debug == 1:
             print "debug mode keep_tmp_dir..."
             pass # keep files for analysis of exceptions in debug mode

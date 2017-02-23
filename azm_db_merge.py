@@ -120,7 +120,7 @@ def parse_cmd_args():
                         default=None)
 
     parser.add_argument('--dry',
-                        help="""Skip the target database procedure - designed for call_preprocess_func mode (without unzipping the azm) where real import is not required like using with legacy AzqGen.exe calls to import to legacy mysql db with legacy schemas.""",
+                        help="""specify the string 'true' (without quotes) to skip the target database procedure - designed just for looping to call the "preprocess" func mode (without unzipping the azm) where real import is not required like using with legacy AzqGen.exe calls to import to legacy mysql db with legacy schemas.""",
                         default='',
                         required=False)
 
@@ -447,9 +447,16 @@ def process_azm_file(args):
     try:
         dir_processing_azm = None
 
-        if len(args['dry']) > 0:
-            print "--dry mode - dont unzip azm for azqdata.db - let preprocess func handle itself"
+        dry_str = args['dry']
+        dry_str = dry_str.strip().lower()
+        dry_mode = (dry_str == "true")
+        print "dry_mode setting: ",dry_mode
+
+        
+        if dry_mode:
+            print "dry_mode - dont unzip azm for azqdata.db - let preprocess func handle itself"
         else:
+            print "normal import mode"
             dir_processing_azm = unzip_azm_to_tmp_folder(args)
             args['dir_processing_azm'] = dir_processing_azm
 
@@ -464,8 +471,8 @@ def process_azm_file(args):
             print "exec preprocess module > preprocess func"
             preprocess(dir_processing_azm,args['azm_file'])
 
-        if len(args['dry']) > 0:
-            print "--dry mode - end here"
+        if dry_mode:
+            print "dry_mode - end here"
             mv_azm_to_target_folder(args)
             return 0
             
@@ -622,6 +629,7 @@ def process_azm_file(args):
         if (n_lines_parsed != 0):
             print( "\n=== SUCCESS - %s completed in %s seconds - tatal n_lines_parsed %d (not including bulk-inserted-table-content-lines)" % (operation, time.time() - proc_start_time, n_lines_parsed) )
             ret =  0
+            mv_azm_to_target_folder(args)
         else:            
             raise Exception("\n=== FAILED - %s - no lines parsed - tatal n_lines_parsed %d operation completed in %s seconds ===" % (operation, n_lines_parsed, time.time() - proc_start_time))
         
@@ -641,7 +649,7 @@ def process_azm_file(args):
             except Exception as x:
                 pass
             
-            print "move_failed_import_azm_files_to_folder: mv {} to {}".format(azm_fp,target_fp)
+            print "move the failed_import_azm_files_to_folder: mv {} to {}".format(azm_fp,target_fp)
             try:
                 os.rename(azm_fp, target_fp)
             except Exception as x:

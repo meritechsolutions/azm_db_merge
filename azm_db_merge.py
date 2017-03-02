@@ -24,6 +24,7 @@ import os
 import shutil
 import glob
 import traceback
+import fnmatch
 
 
 # global vars
@@ -128,6 +129,12 @@ def parse_cmd_args():
                         help='''If specified, azm_db_merge will block re-run on the same folder (specified with '--azm_file') again after the specified number of seconds.''',
                         default=None,
                         required=False)
+
+    parser.add_argument('--add_imei_id_to_all_tables',
+                        action='store_true',
+                        help="""Add log device's IMEI to all rows in all tables.""",
+                        default=False)
+
 
     parser.add_argument('--debug',
                         action='store_true',
@@ -744,6 +751,17 @@ if folder_daemon:
         raise Exception("ABORT: --daemon_mode_rerun_on_folder_after_seconds option must be greater than 0.")
 ori_args = args
 
+if args['add_imei_id_to_all_tables']:
+    # get imei
+    imei = None
+    col = "IMEI"
+    table = "log_info"
+    where = "where {} != ''".format(col) # not null and not empty
+    sqlstr = "select {} from {} {} order by seqid desc limit 1;".format(col, table, where)
+    cmd = [args['sqlite3_executable'],args['file'],sqlstr]
+    imei = subprocess.check_output(cmd).strip()
+    args['imei'] = imei
+
 while(True):
 
     process_start_time = time.time()
@@ -755,8 +773,13 @@ while(True):
     if azm_file_is_folder:
         dir = args['azm_file']
         print "supplied --azm_file: ",dir," is a directory - get a list of .azm files to process:"
-        
-        azm_files = glob.glob(os.path.join(dir,"*.azm"))
+        matches = []
+        # recurse as below instead azm_files = glob.glob(os.path.join(dir,"*.azm"))
+        # http://stackoverflow.com/questions/2186525/use-a-glob-to-find-files-recursively-in-python
+        for root, dirnames, filenames in os.walk(dir):
+            for filename in fnmatch.filter(filenames, '*.azm'):
+                matches.append(os.path.join(root, filename))
+        azm_files = matches
     else:
         azm_files = [args['azm_file']]
 

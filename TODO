@@ -1,16 +1,13 @@
+* --add_imei_id_to_all_tables - checks all tables and add 'imei_id' if
+not already present in table cols
+ * gen_sql_handler.py
+
 * check sqlite3 ver on both existing win and ubuntu - check min ver
    and raise if not... debian case 3.7 didnt work with multi cmd
    required to use
 
-* sqlite3 merge
-  * create if not exists
-  * alter
-  * insert specify cols
-
-* check for sqlite3 binary and ABORT at start if failed...
-
 * import to postgres
-  * test alter add multiple col
+  * test alter add multiple cols at once
 
 * hook gen legacy tables for cur php/mysql session etc tables?
 

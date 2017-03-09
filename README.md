@@ -193,7 +193,7 @@ Some more examples can be checked from the (very simple) example R programming l
 - RSRP plot on map
 - RSRP distribution histogram
 - A histogram showing the distribution of 'e1' WCDMA L3 RRC MeasurementReport's measurement events (e1a, e1b, e1c, etc)
-You can view the example plots and get the source code at:
+- You can view the example plots and get the source code at:
 https://docs.google.com/document/d/18GZAgcs3jRFdWqfvAqmQicvYlXRk6D0WktqWmd5iwwo/edit#heading=h.nnww3d7qok2v
 
 

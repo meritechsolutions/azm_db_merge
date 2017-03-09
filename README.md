@@ -189,9 +189,12 @@ We'd get a row (or a few) then we can see the 'log_hash' of the log. In our case
 
 We now found the log that has is the champion of RSRP! Congratulations!
 
-Some more examples can be checked from the (very simple) example R programming language example project source code - showing some plots and histograms of RSRP and also the histogram showing the distribution of number of some 'e1' WCDMA RRC MeasurementReport events (e1a, e1b, e1c, etc) at:
+Some more examples can be checked from the (very simple) example R programming language example project - although this project uses the old/obsolete table and column names and queries the unmerged sqlite3 database, it can still provide an idea of how to find/get and process some radio parameters and Layer-3 messages in the database - it produces some charts below:
+- RSRP plot on map
+- RSRP distribution histogram
+- A histogram showing the distribution of 'e1' WCDMA L3 RRC MeasurementReport's measurement events (e1a, e1b, e1c, etc)
+You can view the example plots and get the source code at:
 https://docs.google.com/document/d/18GZAgcs3jRFdWqfvAqmQicvYlXRk6D0WktqWmd5iwwo/edit#heading=h.nnww3d7qok2v
-(although above R project uses the old/obsolete table and column names and queries the unmerged sqlite3 database, it can still provide an idea of how to get and process some params - for example 
 
 
 Special Thanks

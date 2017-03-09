@@ -14,15 +14,7 @@ Using pgadmin to query LTE EARFCN, RSRP, SINR and their timestamps along with po
 Using pgadmin to query Layer-3 messages (the 'info' column contains the decoded L3 message text contents but they are multiline which pgadmin doesn't show - psql can show them though):
 ![](example_screenshots/pgadmin_query_layer_3_signalling_from_azm_db_merge_postgres.png)
 
-
-**Some basic info on 'azm' files and accessing this data:**
-- A ".azm" (azenqos mobile test log) file is simply a renamed zip file so you can open/extract with any zip manager software to view the azqdata.db file with any SQLite3 browser program on PC. (If you don't see this file in your .azm logs, go to AZENQOS app > Settings > Enable Database Logging to enable this feature). For more info on the ".azm" file contents and simple data storage architecture (elements, events, messages) - please see the 'AZQ User Guide' database access section from link below:
-https://docs.google.com/document/d/18GZAgcs3jRFdWqfvAqmQicvYlXRk6D0WktqWmd5iwwo/edit#heading=h.6vk8shbpst4
-- Required AZENQOS Android app version (shown in top-right corner of main menu) is ver-3.0.587 or newer.
-- Some logs are provided in the 'example_logs' folder.
-- The full list of the parameters and their tables is available at:
-https://docs.google.com/spreadsheets/d/1ddl-g_qyoMYLF8PMkjrYPrpXusdinTZxsWLQOzJ6xu8/edit?usp=sharing
-- The Layer-3 messages are in the 'signalling' table and the events are in the 'events' table.
+For further info on the data structure and how to access the imported data, please see the section **How to access the imported data** further below.
 
 The current azm_db_merge support for PostgreSQL and Microsoft SQL Server implementation (through pyodbc + "SQL Server Natve Client 11.0" ODBC driver)
  has full support for all azm_db_merge features:
@@ -32,6 +24,7 @@ The current azm_db_merge support for PostgreSQL and Microsoft SQL Server impleme
 - prevent duplicate .azm imports.
 - unmerge support.
 - merge/unmerge transactions are atomic.
+
 
 Setup
 -----
@@ -76,8 +69,7 @@ After a successful merge, you will have a new row showing the imei, log_start_ti
 All tables have the 'log_hash' column showing 'from which log did this row in this table come from' - you can find further info about the log by finding a row with the matching 'log_hash' in the 'logs' table. The 'log_hash' can also be calculated - it is simply a 64-bit number: the high 32 bits is the "last 9 digits of the imei", the low 32 bits is the "log start time" in the format of "seconds since January 1, 1970".
 
 
-PostgreSQL examples:
---------------------
+### PostgreSQL examples:
 
 Please open example GNU/Linux shell script files named below in a text editor:
 - merge:
@@ -88,8 +80,7 @@ Please open example GNU/Linux shell script files named below in a text editor:
   - [ex_postgre_unmerge_folder.sh](ex_postgre_unmerge_folder.sh)
   
 
-Microsoft SQL Server examples:
-------------------------------
+### Microsoft SQL Server examples:
 
 Please open example Windows bat files named below in a text editor:
 - merge:
@@ -100,8 +91,8 @@ Please open example Windows bat files named below in a text editor:
   - [ex_mssql_remove_azm_folder.bat](ex_mssql_remove_azm_folder.bat)
 
 
-SQLite example:
----------------
+### SQLite example:
+
 
 In below example we want to merge the sqlite3 'azqdata.db' files from multiple azm files into a single target sqlite3 file named 'merged.db':
 
@@ -115,20 +106,23 @@ Note:
 The sqlite3 merge option is very early and still does not have a few features:
   - There are no 'column' checks - no auto ALTER support as in PostgreSQL yet. (so merging of azm files from different app versions might fail - if their tables are different).
   - There is no --unmerge support yet.
-  - The are no 'already merged' checks in sqlite3 merge mode yet. 
+  - The are no 'already merged' checks in sqlite3 merge mode yet.
 
- 
-Using QGIS with databases created by azm_db_merge
--------------------------------------------------
 
-*NOTE: You can also use QGIS to directly open the [SQLite](https://sqlite.org/) 'azqdata.db' (and query it with any SQLite browser) in each azm file too (without using azm_db_merge to merge it into a centralized database) - simply choose 'SpatiaLite' in QGIS's Browser Panel and locate the extracted 'azqdata.db' file you extracted from the azm (simply rename the .azm to .zip and unzip).*
+How to access the imported data
+-------------------------------
 
-**PostgreSQL (+PostGIS)**
+Before we start doing SQL queries (or opening tables in QGIS) with the "merged" (multiple logs) database - please read through the *"Mobile Log (.azm) SQLite3 Database access and data reference"* section and also the *"Parameter List and Sqlite Database structure"* section right after it - in the "AZQ User Guide" to get an understanding about the "events", "messages" and "elements" and their "arguments" (index) - at link below:
+https://docs.google.com/document/d/18GZAgcs3jRFdWqfvAqmQicvYlXRk6D0WktqWmd5iwwo/edit#heading=h.6vk8shbpst4
+
+### Easy Data Access and plotting via QGIS
+
+#### QGIS Connection: PostgreSQL (+PostGIS)
 
 - In QGIS > Browser Panel > right-click 'PostGIS' > New Connection... and fill in your database info/credentials - example plot:
 ![](example_screenshots/qgis_plot_rsrp_from_azm_db_merge_postgres_postgis.png)
 
-**Microsoft SQL Server**
+#### QGIS Connection: Microsoft SQL Server
 
 - Make sure you already created the ODBC "Native Client" connection as described in SETUP.md first.
 
@@ -152,6 +146,52 @@ Using QGIS with databases created by azm_db_merge
 
 - Double-click on the tables you want to show and customize normally as in QGIS usage - example LTE RSRP plot:
 ![](example_screenshots/qgis_plot_rsrp_from_azm_db_merge_mssql.png)
+
+#### QGIS Connection: merged sqlite3 or original azqdata.db inside each ".azm" file
+- You can also use QGIS to directly open the [SQLite](https://sqlite.org/) 'azqdata.db' inside each ".azm" file (without using azm_db_merge - and also query it with any SQLite browser) or the merged sqlite3 database files you merged with azm_db_merge.
+- Simply choose 'SpatiaLite' in QGIS's Browser Panel and locate the extracted 'azqdata.db' file you extracted from the azm (simply rename the .azm to .zip and unzip) and the list of populated tables would show up similar to screenshots PostgreSQL QGIS access above.
+
+### Data Access via SQL queries
+
+After going through the document linked in the start of the "How to access the imported data" section above, please go through some notable excerpts and additional notes listed below:
+- The data is structured into "tables" - to know which parameter is in which table - simply open the link below and search for your parameter in the "var_name" column, its table is in the "db_table" column:
+https://docs.google.com/spreadsheets/d/1ddl-g_qyoMYLF8PMkjrYPrpXusdinTZxsWLQOzJ6xu8/edit?usp=sharing
+- The Layer-3 messages and other signalling like 'SIP' are in their own 'signalling' table.
+- The events are in the "events" table.
+- The list of all imported logs are in the "logs" table. (the individual sqlit3 db inside each azm also has this table - with normally only one row because it is from one azm log). This table would tell you the log's original ".azm" filename, the log start_time, end_time, app version, tag name (log_tag) etc.
+- The table structure of the sqlite3 database and the "merged" target database is essentially the same.
+- All tables have the "log_hash" column - this tells you "from which log did this row in this table come from" - you can use it to query the "logs" table for the row that has the same "log_hash" to get further info about the log.
+- All tables have the "time" column - this is the timestamp of that row.
+- All tables have the "geom" column - this is the "geometry POINT" data blob - simply the Latitude (Y) and Longitude (X) combined in a form that can be queried "spatially" and also direcly usable/plottable by tools like QGIS.
+- All tables have the "posid" column (position id) - this coulumn can be used together with the "log_hash" to do "joins" of your target table with the "location" table to get the "positioning_lat" and "positioning_lon" of each row (in case you prefer not to use or not to import the spatial "geom" using azm_db_merge.py's option: --import_geom_column_in_location_table_only).
+- All tables have the "seqid" column (sequence id) - this can be used to easily compare between rows regarding which came before/after/between especially in (rare) cases where a few rows have the same timestamp.
+
+Now, you can use you preferred SQL browser or programming language to do some queries on the data as described above. Below are some simple examples:
+
+#### SQL Query simple examples
+
+*Note: Below are very simple easy-to-write examples tested on PostgreSQL via 'pgAdmin III' - not considering efficiency or any advanced SQL techniques.*
+
+Let's say we want to get the average of the "LTE RSRP" param (in dBm) - first we need to know which table it resides in, so we open:
+https://docs.google.com/spreadsheets/d/1ddl-g_qyoMYLF8PMkjrYPrpXusdinTZxsWLQOzJ6xu8/edit?usp=sharing
+And we search for "rsrp", we can see the row with "var_name" (parameter name) 'lte_inst_rsrp' and its "db_table" column shows that it is in the table 'lte_cell_meas'. Having understood about the "index" we now know that the actual column name would need to have a '_1' suffix if we want to show the PCC (first index) measurements for RSRP - so we can now simply query the database with the SQL below:
+<pre>select avg(lte_inst_rsrp_1) from lte_cell_meas</pre>
+And we'd get our result shown almost instantly.
+
+Then, let's say we want to know the 'max' RSRP - we can do the following query:
+<pre>select max(lte_inst_rsrp_1) from lte_cell_meas</pre>
+
+Suppose we got "-50.6875" as the max RSRP, then, let's say we want to know 'from which log did this 'max' RSRP come from?' - we can then simply query below to get the full row it came from:
+<pre>select * from lte_cell_meas where lte_inst_rsrp_1 = -50.6875</pre>
+
+We'd get a row (or a few) then we can see the 'log_hash' of the log. In our case the 'log_hash' is '264179501379092216' - so now we can simply query below to get the log's original file name (log_ori_file_name column), tag (log_tag column) of the log that has this max RSRP:
+<pre>select * from logs where log_hash = 264179501379092216</pre>
+
+We now found the log that has is the champion of RSRP! Congratulations!
+
+Some more examples can be checked from the (very simple) example R programming language example project source code - showing some plots and histograms at:
+https://docs.google.com/document/d/18GZAgcs3jRFdWqfvAqmQicvYlXRk6D0WktqWmd5iwwo/edit#heading=h.nnww3d7qok2v
+(although above R project uses the old/obsolete table and column names and queries the unmerged sqlite3 database, it can still provide an idea of how to get and process some params - for example 
 
 
 Special Thanks

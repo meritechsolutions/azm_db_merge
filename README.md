@@ -153,7 +153,7 @@ https://docs.google.com/document/d/18GZAgcs3jRFdWqfvAqmQicvYlXRk6D0WktqWmd5iwwo/
 
 ### Data Access via SQL queries
 
-After going through the document linked in the start of the "How to access the imported data" section above, please go through some notable excerpts and additional notes listed below:
+After going through the document linked in the start of the "How to access the imported data" section above (https://docs.google.com/document/d/18GZAgcs3jRFdWqfvAqmQicvYlXRk6D0WktqWmd5iwwo/edit#heading=h.6vk8shbpst4) please go through some notable excerpts and additional notes listed below:
 - The data is structured into "tables" - to know which parameter is in which table - simply open the link below and search for your parameter in the "var_name" column, its table is in the "db_table" column:
 https://docs.google.com/spreadsheets/d/1ddl-g_qyoMYLF8PMkjrYPrpXusdinTZxsWLQOzJ6xu8/edit?usp=sharing
 - The Layer-3 messages and other signalling like 'SIP' are in their own 'signalling' table.

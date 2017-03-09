@@ -14,7 +14,7 @@ Using pgadmin to query LTE EARFCN, RSRP, SINR and their timestamps along with po
 Using pgadmin to query Layer-3 messages (the 'info' column contains the decoded L3 message text contents but they are multiline which pgadmin doesn't show - psql can show them though):
 ![](example_screenshots/pgadmin_query_layer_3_signalling_from_azm_db_merge_postgres.png)
 
-For further info on the data structure and how to access the imported data, please see the section **[How to access the imported data](https://github.com/freewillfx-azenqos/azm_db_merge#how-to-access-the-imported-data)** further below.
+For further info on the data structure and how to access the imported data, please see the section **[How to access the imported data](#how-to-access-the-imported-data)** further below.
 
 The current azm_db_merge support for PostgreSQL and Microsoft SQL Server implementation (through pyodbc + "SQL Server Natve Client 11.0" ODBC driver)
  has full support for all azm_db_merge features:

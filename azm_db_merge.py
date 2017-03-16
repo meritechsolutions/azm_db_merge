@@ -711,6 +711,9 @@ args = parse_cmd_args()
 # must be localhost only because now we're using BULK INSERT (or COPY) commands
 args['server_url'] = "localhost"
 
+if (args['unmerge']):
+    print "starting with --unmerge mode"
+
 print "checking --sqlite3_executable: ",args['sqlite3_executable']
 try:
     cmd = [

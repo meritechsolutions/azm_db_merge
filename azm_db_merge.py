@@ -25,7 +25,7 @@ import shutil
 import glob
 import traceback
 import fnmatch
-
+import hashlib
 
 # global vars
 g_target_db_types = ['postgresql','mssql','sqlite3']
@@ -156,23 +156,21 @@ def parse_cmd_args():
                         default=False)
 
 
+    parser.add_argument('--get_schema_shasum_and_exit',
+                        action='store_true',
+                        help="""Compute the schema of the azqdata.db inside the specified azm and exit. Example:
+python azm_db_merge.py --target_db_type sqlite3 --azm_file example_logs/358096071732800\ 2_1_2017\ 13.12.49.azm --server_user "" --server_password "" --server_database "" --target_sqlite3_file merged.db --get_schema_shasum_and_exit
+                        """,
+                        default=False)
     
     args = vars(parser.parse_args())
     return args
 
 def is_dump_schema_only_for_target_db_type(args):
-    
+   
     # now force bulk so always schema only
     return True
     
-    if (args['unmerge']):
-        return True
-    
-    if (args['target_db_type'] == 'mssql' and not args['mssql_local_bulk_insert_mode_disable'] == True):
-        return True
-    
-    return False
-
 
 def popen_sqlite3_dump(args):
     params = [
@@ -381,10 +379,28 @@ def unzip_azm_to_tmp_folder(args):
     try:
         azm = zipfile.ZipFile(args['azm_file'],'r')
         azm.extract("azqdata.db", dir_processing_azm)
+        if args['get_schema_shasum_and_exit']:
+            print "get_schema_shasum_and_exit start"
+            sha1 = hashlib.sha1()
+            #print "get_schema_shasum_and_exit 1"
+            dbfile = os.path.join(dir_processing_azm,"azqdata.db")
+            #print "get_schema_shasum_and_exit 2"
+            schema = subprocess.check_output([args['sqlite3_executable'],dbfile,".schema"])
+            #print "get_schema_shasum_and_exit 3"
+            sha1.update(schema)
+            #print "get_schema_shasum_and_exit 4"
+            print str(sha1.hexdigest())+" is the sha1 for the schema of azqdata.db inside azm: "+args['azm_file']
+            print "get_schema_shasum_and_exit done"
+            azm.close()
+            cleanup_tmp_dir(dir_processing_azm)
+            exit(0)
         azm.close()
-    except:
-        os.rmdir(dir_processing_azm) # cleanup
-        raise Exception("Invalid azm_file: azm file does not contain azqdata.db database.")
+    except Exception as e:
+        try:
+            cleanup_tmp_dir(dir_processing_azm)
+        except:
+            pass
+        raise Exception("Invalid azm_file: azm file does not contain azqdata.db database - exception: "+str(e))
         
     
     dprint("unzip_azm_to_tmp_folder 4")
@@ -397,6 +413,11 @@ def cleanup_tmp_dir(dir_processing_azm):
     # clear tmp processing folder
     attempts = range(5) # 0 to 4 
     imax = len(attempts)
+    print "cleanup_tmp_dir: ",dir_processing_azm
+    if dir_processing_azm != None and os.path.exists(dir_processing_azm) and os.path.isdir(dir_processing_azm):
+        pass
+    else:
+        return    
     for i in attempts:
         try:
             # print("cleaning up tmp dir...")        

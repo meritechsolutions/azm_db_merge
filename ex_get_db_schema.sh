@@ -1,0 +1,1 @@
+python azm_db_merge.py --target_db_type sqlite3 --azm_file example_logs/358096071732800\ 2_1_2017\ 13.12.49.azm --server_user "" --server_password "" --server_database "" --target_sqlite3_file dummy_not_used.db --get_schema_shasum_and_exit

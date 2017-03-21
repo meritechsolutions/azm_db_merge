@@ -746,11 +746,11 @@ try:
         print "sqlite3_executable working - OK"
     else:
         raise Exception("Secified (or default) --sqlite3_executable not working - ABORT")
-except WindowsError as e:
+except Exception as e:
     estr = str(e)
-    print "windowserror - sqlite3 check exception estr: ",estr
+    print "error - sqlite3 check exception estr: ",estr
     if "The system cannot find the file specified" in estr:
-        print "windows run: can't call specified sqlite3_executable - tring use 'where' to find the default 'sqlite3' executable."
+        print "windows run: can't call specified sqlite3_executable - trying use 'where' to find the default 'sqlite3' executable."
         outstr = subprocess.check_output(
             ["cmd.exe",
              "/c",
@@ -771,7 +771,16 @@ except WindowsError as e:
         else:
             raise Exception("Secified (or default) --sqlite3_executable not working - ABORT")
     else:
-        raise e
+        args['sqlite3_executable'] = "./sqlite3"
+        cmd = [
+            args['sqlite3_executable'],
+            "--version"
+        ]
+        ret = call(cmd, shell=False)
+        if ret == 0:
+            print "sqlite3_executable working - OK"
+        else:
+            raise Exception("Failed to find sqlite3 - please install sqlite3 and make sure it is in the path first. exception:"+str(e))
     
 
 omit_tables = "spatial_ref_sys,geometry_columns,"+args['exclude_tables']

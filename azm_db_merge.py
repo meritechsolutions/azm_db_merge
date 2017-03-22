@@ -459,10 +459,15 @@ def mv_azm_to_target_folder(args):
         target_fp = os.path.join(mv_target_folder,os.path.basename(azm_fp))
         try:
             os.remove(target_fp)
+            os.remove(target_fp+"_output.txt")
         except:
             pass
         print "move_imported_azm_files_to_folder: mv {} to {}".format(azm_fp,target_fp)
         os.rename(azm_fp, target_fp)
+        try:
+            os.rename(azm_fp+"_output.txt", target_fp+"_output.txt")
+        except:
+            pass
 
     
 def process_azm_file(args):
@@ -674,12 +679,17 @@ def process_azm_file(args):
             target_fp = os.path.join(mv_target_folder,os.path.basename(azm_fp))
             try:
                 os.remove(target_fp)
+                os.remove(target_fp+"_output.txt")
             except Exception as x:
                 pass
             
             print "move the failed_import_azm_files_to_folder: mv {} to {}".format(azm_fp,target_fp)
             try:
                 os.rename(azm_fp, target_fp)
+                try:
+                    os.rename(azm_fp+"_output.txt", target_fp+"_output.txt")
+                except:
+                    pass
             except Exception as x:
                 print "WARNING: move_failed_import_azm_files_to_folder failed"
                 pass
@@ -905,6 +915,7 @@ while(True):
     else:
         print "COMPLETED WITH ERRORS - operation completed but had encountered errors (tatal: %d, failed: %d) - in %.03f seconds - (use --folder_mode_stop_on_first_failure to stop on first failed azm file)." % (iazm,ifailed, time.time() - process_start_time)
     if not folder_daemon:
+        print "exit code:",str(ret)
         exit(ret)
     else:
         print "*** folder_daemon mode: wait seconds: ",folder_daemon_wait_seconds

@@ -117,7 +117,7 @@ https://docs.google.com/document/d/18GZAgcs3jRFdWqfvAqmQicvYlXRk6D0WktqWmd5iwwo/
 
 ### Easy Data Access and plotting via QGIS
 
-Note: You can use the same method to plot/export using QGIS as mentioned in the topic "Using QGIS to plot and export data (CSV, MIF, TAB, KML) from the azm file’s ‘azqdata.db’" in the link below (please go through this first):
+Note: You can use the same method to plot/export using QGIS as mentioned in the topic *Using QGIS to plot and export data (CSV, MIF, TAB, KML) from the azm file’s ‘azqdata.db’* in the link below (please go through this first):
 https://docs.google.com/document/d/18GZAgcs3jRFdWqfvAqmQicvYlXRk6D0WktqWmd5iwwo/edit#heading=h.x709kxgmard0
 
 #### QGIS Connection: PostgreSQL (+PostGIS)

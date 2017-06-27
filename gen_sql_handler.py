@@ -581,7 +581,7 @@ def create(args, line):
             else:
                 print "n_cols_to_add: " + str(n_cols_to_add) + " - need to alter table - add cols:" + str(local_columns_not_in_remote) + "\nremote_cols:\n"+str(remote_columns)
                 # example: ALTER TABLE dbo.doc_exa ADD column_b VARCHAR(20) NULL, column_c INT NULL ; 
-                alter_str = "ALTER TABLE \"{}\" ADD ".format(table_name)
+                alter_str = "ALTER TABLE \"{}\" ".format(table_name)
                 alter_cols = ""                
                 
                 for new_col in local_columns_not_in_remote:
@@ -589,7 +589,7 @@ def create(args, line):
                     prefix = ""
                     if (alter_cols != ""):
                         prefix = ", "
-                    alter_cols = alter_cols + prefix + new_col
+                    alter_cols = alter_cols + prefix + " ADD " + new_col
                     
                 alter_str = alter_str + alter_cols + ";"
                 

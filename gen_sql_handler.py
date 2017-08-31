@@ -115,6 +115,23 @@ def connect(args):
 
     # post connect steps for each dbms
     if g_is_postgre:
+        if args["pg_schema"] is not None:
+            print "pg mode create pg_schema:", args["pg_schema"]
+            try:
+                with g_conn as c:
+                    ret = g_cursor.execute("create schema "+args["pg_schema"])
+                    print "success: create schema "+args["pg_schema"]+ " success"
+            except Exception as e:
+                estr = str(e)
+                if 'already exists' in estr:
+                    dprint("schema already exists")
+                    pass
+                else:
+                    print("FATAL: CREATE schema failed:"+args["pg_schema"])
+                    raise e
+            print "pg using schema start"
+            with g_conn as c:
+                ret = g_cursor.execute("SET search_path TO " + args["pg_schema"])
         try:
             with g_conn as c:
                 ret = g_cursor.execute("CREATE EXTENSION postgis")
@@ -127,7 +144,7 @@ def connect(args):
             else:
                 print("FATAL: CREATE EXTENSION postgis - failed - please make sure postgis is correctly installed.")
                 raise e
-            
+
     if g_is_ms:
         
         ''' somehow not working - let qgis detect itself for now...

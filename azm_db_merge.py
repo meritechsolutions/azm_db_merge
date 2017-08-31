@@ -22,7 +22,7 @@ from debug_helpers import dprint
 import zipfile
 import os
 import shutil
-import glob
+import uuid
 import traceback
 import fnmatch
 import hashlib
@@ -136,7 +136,10 @@ def parse_cmd_args():
                         default=None,
                         required=False)
 
-    
+    parser.add_argument('--pg_schema',
+                        help='''If specified, will create/use this schema for all tables.''',
+                        default=None,
+                        required=False)
 
     parser.add_argument('--daemon_mode_rerun_on_folder_after_seconds',
                         help='''If specified, azm_db_merge will block re-run on the same folder (specified with '--azm_file') again after the specified number of seconds.''',
@@ -350,11 +353,14 @@ def unzip_azm_to_tmp_folder(args):
     else:
         raise Exception("INVALID: - azm file does not exist at given path: "+str(azm_fp)+" - ABORT")        
     
-    dir_azm = os.path.dirname(azm_fp)
-    print "dir_azm: "+dir_azm
+    dir_azm_unpack = os.path.dirname(azm_fp)
+    print "dir_azm_unpack: "+dir_azm_unpack
     azm_name_no_ext = os.path.splitext(os.path.basename(azm_fp))[0]
     print "azm_name_no_ext: "+azm_name_no_ext
-    dir_processing_azm = os.path.join(dir_azm, "tmp_process_"+azm_name_no_ext.replace(" ","-")) # replace 'space' in azm file name 
+    if 'TMP_GEN_PATH' in os.environ:
+        dir_azm_unpack = os.environ['TMP_GEN_PATH']
+        print "dir_azm_unpack using TMP_GEN_PATH:", dir_azm_unpack
+    dir_processing_azm = os.path.join(dir_azm_unpack, "tmp_azm_db_merge_"+str(uuid.uuid4())+"_"+azm_name_no_ext.replace(" ","-")) # replace 'space' in azm file name
     args['dir_processing_azm'] = dir_processing_azm
     
     dprint("unzip_azm_to_tmp_folder 1")

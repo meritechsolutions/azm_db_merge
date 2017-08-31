@@ -685,17 +685,20 @@ def create(args, line):
             )
 
         if g_is_postgre:
-            ret = call(
-                [
+            dump_cmd = [
                 args['sqlite3_executable'],
                 args['file'],
                 "-ascii",
                 "-csv",
                 '-separator',',',
                 '-newline', '\n',
-                '.out ' + '"' +table_dump_fp.replace("\\","\\\\") + '"', # double backslash because it needs to go inside sqlite3 cmd parsing again      
+                '.out ' + '"' +table_dump_fp.replace("\\","\\\\") + '"', # double backslash because it needs to go inside sqlite3 cmd parsing again
                 'select '+col_select+' from '+ table_name
-                ], shell = False
+                ]
+            dprint("dump_cmd:", dump_cmd)
+            ret = call(
+                dump_cmd,
+                shell=False
             )
 
         table_dump_fp_adj = table_dump_fp + "_adj.csv"
@@ -722,7 +725,7 @@ def create(args, line):
         dprint("dump table: "+table_name+" for bulk insert ret: "+str(ret))
         
         if (ret != 0):
-            raise Exception("FATAL: dump table: "+table_name+" for bulk insert failed")
+            print "WARNING: dump table: "+table_name+" for bulk insert failed - likely sqlite db file error like: database disk image is malformed. In many cases, data is still correct/complete so continue."
             
             
         if (os.stat(table_dump_fp).st_size == 0):
@@ -776,7 +779,9 @@ def create(args, line):
                 terminator = azm_db_constants.BULK_INSERT_LINE_SEPARATOR_PARAM
             else:
                 terminator = azm_db_constants.BULK_INSERT_COL_SEPARATOR_PARAM
-            dprint("remote_column_names: "+str(remote_column_names))
+            if not table_name.startswith("wifi_scanned"):
+                dprint("remote_column_names: "+str(remote_column_names))
+                pass
             dprint("col: "+str(col))
             server_col_order = remote_column_names.index(col) + 1 # not 0 based
             server_col_name = col # always same col name

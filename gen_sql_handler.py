@@ -115,12 +115,17 @@ def connect(args):
 
     # post connect steps for each dbms
     if g_is_postgre:
+
+        try_cre_postgis() # at public schema
+        
         if args["pg_schema"] is not None:
             print "pg mode create pg_schema:", args["pg_schema"]
             try:
                 with g_conn as c:
                     ret = g_cursor.execute("create schema "+args["pg_schema"])
+                    c.commit()
                     print "success: create schema "+args["pg_schema"]+ " success"
+                    
             except Exception as e:
                 estr = str(e)
                 if 'already exists' in estr:
@@ -132,18 +137,8 @@ def connect(args):
             print "pg using schema start"
             with g_conn as c:
                 ret = g_cursor.execute("SET search_path TO " + args["pg_schema"])
-        try:
-            with g_conn as c:
-                ret = g_cursor.execute("CREATE EXTENSION postgis")
-                print "success: CREATE EXTENSION postgis"
-        except Exception as e:
-            estr = str(e)
-            if 'extension "postgis" already exists' in estr:
-                dprint("postgis already exists")
-                pass
-            else:
-                print("FATAL: CREATE EXTENSION postgis - failed - please make sure postgis is correctly installed.")
-                raise e
+                try_cre_postgis() # inside new schema
+                
 
     if g_is_ms:
         
@@ -181,6 +176,25 @@ def connect(args):
         '''
 
     return True
+
+
+def try_cre_postgis():
+    global g_conn
+    global g_cursor
+    try:
+        with g_conn as c:
+            print "try: CREATE EXTENSION postgis"
+            ret = g_cursor.execute("CREATE EXTENSION postgis")
+            c.commit()
+            print "success: CREATE EXTENSION postgis"
+    except Exception as e:
+        estr = str(e)
+        if 'extension "postgis" already exists' in estr:
+            print("postgis already exists")
+            pass
+        else:
+            print("FATAL: CREATE EXTENSION postgis - failed - please make sure postgis is correctly installed.")
+            raise e
 
 
 def check_if_already_merged(args, log_ori_file_name):

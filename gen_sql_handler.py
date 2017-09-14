@@ -79,7 +79,7 @@ def connect(args):
                 args['server_database'],
                 args['server_user'],
                 args['server_password'])
-        print "using connect_str: "+connect_str
+        #unsafe as users might see in logs print "using connect_str: "+connect_str
         """
         https://msdn.microsoft.com/en-us/library/ms131281.aspx
         ODBC applications should not use Transact-SQL transaction statements such as
@@ -103,7 +103,7 @@ def connect(args):
                 )
         if args['docker_postgres_server_name'] != None:
             connect_str = "host="+args['docker_postgres_server_name']+" "+connect_str
-        print "using connect_str: "+connect_str
+        #unsafe as users might see in logs print "using connect_str: "+connect_str
         g_conn = psycopg2.connect(connect_str)
     if (g_conn is None):
         print "psycopg2.connect returned None"

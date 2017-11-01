@@ -12,6 +12,7 @@ from subprocess import call
 import os
 import sys
 import traceback
+import time
 
 # global vars
 g_is_postgre = False
@@ -104,6 +105,7 @@ def connect(args):
         if args['docker_postgres_server_name'] != None:
             connect_str = "host="+args['docker_postgres_server_name']+" "+connect_str
         #unsafe as users might see in logs print "using connect_str: "+connect_str
+        args['connect_str'] = connect_str
         g_conn = psycopg2.connect(connect_str)
     if (g_conn is None):
         print "psycopg2.connect returned None"
@@ -328,6 +330,9 @@ def commit(args, line):
     g_prev_create_statement_table_name = None
 
     n = len(g_exec_buf)
+
+    # make sure all create/alters are committed
+    g_conn.commit()
     
     print "### total cmds to execute for operation: "+str(n)
     
@@ -336,7 +341,7 @@ def commit(args, line):
         i = i + 1
         print "# execute cmd {}/{}: {}".format(i, n, buf)
         g_cursor.execute(buf)
-    
+        
     print("### all cmds exec success - COMMIT now...")    
     g_conn.commit()
     print("### COMMIT success...")
@@ -477,6 +482,7 @@ def create(args, line):
 
     line_adj = sql_adj_line(line)
     table_name = get_table_name(line_adj)
+    schema_per_log_name = "per_log_{}".format(table_name)
 
     if table_name == "logs":
         uline = line.replace('"log_hash" BIGINT,','"log_hash" BIGINT UNIQUE,',1)
@@ -486,7 +492,6 @@ def create(args, line):
     if args['import_geom_column_in_location_table_only'] and table_name != "location":
         line_adj = sql_adj_line(line.replace(',"geom" BLOB','',1))
 
-    
     if (g_unmerge_logs_row is not None):
         print "### unmerge mode - delete all rows for this azm in table: "+table_name
         
@@ -549,19 +554,58 @@ def create(args, line):
         dprint("create sqlstr: "+sqlstr)
         
         if g_is_postgre:
-            dprint("create sqlstr mod postgis geom: "+sqlstr)
+
+            if args['pg10_partition_by_log']:
+                if table_name == "logs":
+                    # dont partition logs table
+                    pass
+                else:
+                    # create target partition for this log + table
+                    # ok - partition this table
+                    sqlstr = sqlstr.replace(";","") +" PARTITION BY LIST (log_hash);"
+                    try:                        
+                        with g_conn as c:
+                            g_cursor.execute("SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{}';".format(schema_per_log_name))
+                            if bool(g_cursor.rowcount):
+                                print "schema_per_log_name already exists:", schema_per_log_name
+                                pass
+                            else:
+                                print "cre schema now because: NOT schema_per_log_name already exists:", schema_per_log_name
+                                with g_conn as c:
+                                    c_table_per_log_sql = "create schema {};".format(schema_per_log_name)
+                                    ret = g_cursor.execute(c_table_per_log_sql)
+                                    g_conn.commit()
+                                    print "success: create per_log ["+c_table_per_log_sql+"] success"
+                    except:
+                        type_, value_, traceback_ = sys.exc_info()
+                        exstr = str(traceback.format_exception(type_, value_, traceback_))
+                        print "WARNING: create table_per_log schema failed:", exstr
+
+
+            dprint("create sqlstr postgres mod: "+sqlstr)
             is_contains_geom_col = True            
             # postgis automatically creates/maintains "geometry_columns" 'view'
-            
+
+        
+
         if g_is_ms:
             dprint("create sqlstr mod mssql geom: "+sqlstr)
             is_contains_geom_col = True            
-           
+
+        if g_is_postgre:
+            with g_conn as c:
+                g_cursor.execute("select * from information_schema.tables where table_name=%s", (table_name,))
+                if bool(g_cursor.rowcount):
+                    print "omit already existing table - raise exception to check columns instead"
+                    raise Exception("table {} already exists - no need to create".format(table_name))
+                    
         
         ret = None
         # use with for auto rollback() on g_conn on expected fails like already exists
         with g_conn as c:
             ret = g_cursor.execute(sqlstr)
+        # commit now otherwise COPY might not see partitions
+        g_conn.commit()
         dprint("create execute ret: "+str(ret))
         
         """ if control reaches here then the create is successful
@@ -638,9 +682,36 @@ def create(args, line):
         else:
             raise Exception("FATAL: create table error - : \nemsg:\n "+emsg+" \nsqlstr:\n"+sqlstr)
             
-    
-    
+
     if g_bulk_insert_mode:
+
+        if args['pg10_partition_by_log']:
+            if table_name == "logs":
+                # dont partition logs table
+                pass
+            else:
+                log_hash = args['log_hash']
+                ntn = "log_hash_{}".format(log_hash) # simpler name because we got cases where schema's table name got truncated: activate_dedicated_eps_bearer_context_request_params_3170932708
+                pltn = "{}.{}".format(schema_per_log_name, ntn)
+                with g_conn as c:
+                    check_sql = "select * from information_schema.tables where table_schema='{}' and table_name='{}'".format(schema_per_log_name, ntn)
+                    print "check_sql:", check_sql
+                    g_cursor.execute(check_sql)
+                    if bool(g_cursor.rowcount):
+                        print "omit create already existing per_log table:", pltn
+                    else:
+                        print "NOT omit create already existing per_log table:", pltn
+                        cre_target_pt_sql = "CREATE TABLE {} PARTITION OF {} FOR VALUES IN ({});".format(pltn, table_name, log_hash)
+                        dprint("cre_target_pt_sql:", cre_target_pt_sql)
+                        try:
+                            with g_conn as c:
+                                ret = g_cursor.execute(cre_target_pt_sql)
+                                print("cre_target_pt_sql execute ret: "+str(ret))
+                                g_conn.commit()
+                        except:
+                            type_, value_, traceback_ = sys.exc_info()
+                            exstr = str(traceback.format_exception(type_, value_, traceback_))
+                            print "WARNING: create target partition for this log + table exception:", exstr
         
         ###### let sqlite3 dump contents of table into file
         

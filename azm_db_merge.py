@@ -165,6 +165,11 @@ def parse_cmd_args():
 python azm_db_merge.py --target_db_type sqlite3 --azm_file example_logs/358096071732800\ 2_1_2017\ 13.12.49.azm --server_user "" --server_password "" --server_database "" --target_sqlite3_file merged.db --get_schema_shasum_and_exit
                         """,
                         default=False)
+
+    parser.add_argument('--pg10_partition_by_log',
+                        action='store_true',
+                        help="""For postgresql v10 only - when create tables - do declartive partitioning by log_hash""",
+                        default=False)
     
     args = vars(parser.parse_args())
     return args
@@ -626,6 +631,13 @@ def process_azm_file(args):
             # unmerge mode would be handled by same check_if_already_merged_function below - the 'unmerge' flag is in args
         
         g_check_if_already_merged_function(args, log_ori_file_name)
+
+        # now get log_hash
+        sqlstr = "select log_hash from logs limit 1"
+        cmd = [args['sqlite3_executable'],args['file'],sqlstr]
+        outstr = subprocess.check_output(cmd)
+        log_hash = outstr.strip()
+        args['log_hash'] = long(log_hash)
         
         ''' now we're connected and ready to import, open dumped file and hadle CREATE/INSERT
         operations for current target_type (DBMS type)'''

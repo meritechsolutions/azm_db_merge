@@ -51,7 +51,6 @@ def test():
 
     # read azm's db schema mode
     assert 0 == subprocess.call("./ex_get_db_schema.sh",shell=True)
-
   
     ### basic operations in existing db
     # try unmerge from pg first if exists

@@ -138,7 +138,7 @@ def parse_cmd_args():
 
     parser.add_argument('--pg_schema',
                         help='''If specified, will create/use this schema for all tables.''',
-                        default=None,
+                        default="public",
                         required=False)
 
     parser.add_argument('--daemon_mode_rerun_on_folder_after_seconds',

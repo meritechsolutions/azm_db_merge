@@ -118,9 +118,9 @@ def connect(args):
     # post connect steps for each dbms
     if g_is_postgre:
 
-        try_cre_postgis() # at public schema
+       try_cre_postgis(schema="public") # create postgis at public schema first
         
-        if args["pg_schema"] is not None:
+       if args["pg_schema"] != "public":
             print "pg mode create pg_schema:", args["pg_schema"]
             try:
                 with g_conn as c:
@@ -137,9 +137,7 @@ def connect(args):
                     print("FATAL: CREATE schema failed:"+args["pg_schema"])
                     raise e
             print "pg using schema start"
-            with g_conn as c:
-                ret = g_cursor.execute("SET search_path TO " + args["pg_schema"])
-                try_cre_postgis() # inside new schema
+            try_cre_postgis(schema=args["pg_schema"]) # inside new schema
                 
 
     if g_is_ms:
@@ -180,13 +178,14 @@ def connect(args):
     return True
 
 
-def try_cre_postgis():
+def try_cre_postgis(schema="public"):
     global g_conn
     global g_cursor
     try:
         with g_conn as c:
-            print "try: CREATE EXTENSION postgis"
-            ret = g_cursor.execute("CREATE EXTENSION postgis")
+            sql = "CREATE EXTENSION postgis SCHEMA {}".format(schema)
+            print "try: CREATE EXTENSION postgis on schema:", schema, "sql:", sql
+            ret = g_cursor.execute(sql)
             c.commit()
             print "success: CREATE EXTENSION postgis"
     except Exception as e:
@@ -199,12 +198,14 @@ def try_cre_postgis():
             raise e
 
 
-def check_if_already_merged(args, log_ori_file_name):
-    
+def check_if_already_merged(args, log_ori_file_name):    
     global g_unmerge_logs_row
     global g_cursor
     global g_exec_buf
     global g_is_ms, g_is_postgre
+
+    if args["pg_schema"] != "public":
+        g_cursor.execute("SET search_path = '{}','public';".format(args["pg_schema"]))
     
     try:
         print "checking if this log has already been imported/merged: "+log_ori_file_name
@@ -212,7 +213,7 @@ def check_if_already_merged(args, log_ori_file_name):
         sqlstr = "select \"log_hash\" from \"logs\" where \"log_ori_file_name\" like ?"
         if g_is_postgre:
             sqlstr = sqlstr.replace("?","%s")
-        dprint("cmd: "+sqlstr)
+        print("check log cmd: "+sqlstr)
 
         row = None
 
@@ -222,7 +223,7 @@ def check_if_already_merged(args, log_ori_file_name):
             ret = g_cursor.execute(sqlstr, [log_ori_file_name])
             row = g_cursor.fetchone()
 
-        dprint("after cmd")
+        print("after cmd check if exists row:", row)
 
         if (row is None):
             
@@ -278,7 +279,10 @@ def check_if_already_merged(args, log_ori_file_name):
         if ("Invalid object name 'logs'" in estr or '42S02' in estr
             or 'relation "logs" does not exist' in estr):
             print "looks like this is the first-time log import - no table named logs exists yet - ok..."
-            pass # first time import - no table named logs exists yet
+            if args['unmerge']:
+                raise Exception("--unmerge mode called on an empty database: no related 'logs' table exist yet")
+            # first time import - no table named logs exists yet
+        
         else:
             type_, value_, traceback_ = sys.exc_info()
             exstr = traceback.format_exception(type_, value_, traceback_)
@@ -477,8 +481,12 @@ def create(args, line):
     global g_prev_create_statement_column_names
     global g_exec_buf
     global g_is_ms, g_is_postgre
-
+    global g_unmerge_logs_row
+        
     g_prev_create_statement_column_names = None
+
+    if args["pg_schema"] != "public":
+        g_cursor.execute("SET search_path = '{}','public';".format(args["pg_schema"]))
 
     line_adj = sql_adj_line(line)
     table_name = get_table_name(line_adj)
@@ -495,8 +503,6 @@ def create(args, line):
     if (g_unmerge_logs_row is not None):
         print "### unmerge mode - delete all rows for this azm in table: "+table_name
         
-        # "time" needs to be quoted to tell that it is a column name!
-        # example: select * from event where log_hash like '358096071732800' and "time" between '2016-11-16 16:06:21.510' and '2016-11-16 17:14:15.220'
         """ now we use log_hash - no need to parse time
         # remove 3 traling 000 from microsecs str
         start_dt_str = str(g_unmerge_logs_row['log_start_time'])[:-3] 
@@ -594,7 +600,7 @@ def create(args, line):
 
         if g_is_postgre:
             with g_conn as c:
-                g_cursor.execute("select * from information_schema.tables where table_name=%s", (table_name,))
+                g_cursor.execute("select * from information_schema.tables where table_schema=%s and table_name=%s", (args["pg_schema"],table_name,))
                 if bool(g_cursor.rowcount):
                     print "omit already existing table - raise exception to check columns instead"
                     raise Exception("table {} already exists - no need to create".format(table_name))

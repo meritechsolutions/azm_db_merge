@@ -116,7 +116,7 @@ def connect(args):
     g_cursor = g_conn.cursor()
 
     # post connect steps for each dbms
-    if g_is_postgre:
+    if g_is_postgre and not args['unmerge']:
 
        try_cre_postgis(schema="public") # create postgis at public schema first
         
@@ -136,12 +136,12 @@ def connect(args):
                 else:
                     print("FATAL: CREATE schema failed:"+args["pg_schema"])
                     raise e
-            print "pg using schema start"
-            try_cre_postgis(schema=args["pg_schema"]) # inside new schema
+            # create postgis in public only - print "pg using schema start"
+            # try_cre_postgis(schema=args["pg_schema"]) # inside new schema
                 
 
     if g_is_ms:
-        
+        pass
         ''' somehow not working - let qgis detect itself for now...
         try:
             # set 'f_table_name' to unique so we can blindly insert table_name:geom (on create handlers) to it without checking (let mssql check)

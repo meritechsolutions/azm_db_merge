@@ -51,6 +51,7 @@ def test():
 
     # read azm's db schema mode
     assert 0 == subprocess.call("./ex_get_db_schema.sh",shell=True)
+
   
     ### basic operations in existing db
     # try unmerge from pg first if exists
@@ -90,6 +91,7 @@ def test():
     dbcur.execute("select * from all_logs.logs")
     assert 1 == dbcur.rowcount
     make_sure_public_logs_doesnt_exist(dbcon, dbcur)
+
     
 if __name__ == '__main__':
     test()

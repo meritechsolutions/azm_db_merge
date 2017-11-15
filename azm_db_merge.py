@@ -37,7 +37,7 @@ def parse_cmd_args():
     )
 
     parser.add_argument('--azm_file',help='''An AZENQOS Android .azm file (or directory that contains multiple .azm files)
-    that contains the SQLite3 "azqdata.db" to merge/import.
+    that contains the SQLite3 "azqdata.db" to merge/import. If you want azm_db_merge to try find from multiple full paths, using whichever is first present, separate the strings with a comma.
     (a .azm is actually a zip file)''', required=True)
     
     parser.add_argument('--unmerge',
@@ -855,6 +855,19 @@ g_check_if_already_merged_function = getattr(mod, 'check_if_already_merged')
 g_create_function = getattr(mod, 'create')
 g_commit_function = getattr(mod, 'commit')
 g_close_function = getattr(mod, 'close')
+
+if "," in args['azm_file']:
+    print "found comman in args['azm_file'] - split and use whichever is first present in the list"
+    csv = args['azm_file']
+    found = False
+    for fp in csv.split(","):
+        if os.path.isfile(fp):
+            args['azm_file'] = fp
+            print "using valid azm_file file path:", args['azm_file']
+            found = True
+            break
+    if not found:
+        raise Exception("Failed to find any valid existing azm file in supplied comma separated --azm_file option:"+str(args['azm_file']))   
 
 azm_file_is_folder = os.path.isdir(args['azm_file'])
 

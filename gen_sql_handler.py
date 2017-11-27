@@ -709,15 +709,18 @@ def create(args, line):
                         print "NOT omit create already existing per_log table:", pltn
                         cre_target_pt_sql = "CREATE TABLE {} PARTITION OF {} FOR VALUES IN ({});".format(pltn, table_name, log_hash)
                         dprint("cre_target_pt_sql:", cre_target_pt_sql)
-                        try:
-                            with g_conn as c:
-                                ret = g_cursor.execute(cre_target_pt_sql)
-                                print("cre_target_pt_sql execute ret: "+str(ret))
-                                g_conn.commit()
-                        except:
-                            type_, value_, traceback_ = sys.exc_info()
-                            exstr = str(traceback.format_exception(type_, value_, traceback_))
-                            print "WARNING: create target partition for this log + table exception:", exstr
+                        for retry in range(10):
+                            try:
+                                with g_conn as c:
+                                    ret = g_cursor.execute(cre_target_pt_sql)
+                                    print("cre_target_pt_sql execute ret: "+str(ret))
+                                    g_conn.commit()
+                                break
+                            except:
+                                type_, value_, traceback_ = sys.exc_info()
+                                exstr = str(traceback.format_exception(type_, value_, traceback_))
+                                print "WARNING: create target partition for this log + table retry {} exception: {}".format(retry, exstr)
+                                time.sleep(1.0)
         
         ###### let sqlite3 dump contents of table into file
         

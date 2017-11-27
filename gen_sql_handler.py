@@ -190,7 +190,7 @@ def try_cre_postgis(schema="public"):
             print "success: CREATE EXTENSION postgis"
     except Exception as e:
         estr = str(e)
-        if 'extension "postgis" already exists' in estr:
+        if 'already exists' in estr:
             print("postgis already exists")
             pass
         else:

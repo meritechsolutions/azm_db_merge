@@ -699,34 +699,40 @@ def create(args, line):
                 log_hash = args['log_hash']
                 ntn = "log_hash_{}".format(log_hash) # simpler name because we got cases where schema's table name got truncated: activate_dedicated_eps_bearer_context_request_params_3170932708
                 pltn = "{}.{}".format(schema_per_log_name, ntn)
+                per_log_table_already_exists = False
                 with g_conn as c:
                     check_sql = "select * from information_schema.tables where table_schema='{}' and table_name='{}'".format(schema_per_log_name, ntn)
                     print "check_sql:", check_sql
                     g_cursor.execute(check_sql)
                     if bool(g_cursor.rowcount):
-                        print "omit create already existing per_log table:", pltn
-                    else:
-                        print "NOT omit create already existing per_log table:", pltn
-                        cre_target_pt_sql = "CREATE TABLE {} PARTITION OF {} FOR VALUES IN ({});".format(pltn, table_name, log_hash)
-                        dprint("cre_target_pt_sql:", cre_target_pt_sql)
-                        cre_partition_success = False
-                        for retry in range(10):
-                            try:
-                                with g_conn as c:
-                                    ret = g_cursor.execute(cre_target_pt_sql)
-                                    print("cre_target_pt_sql execute ret: "+str(ret))
-                                    g_conn.commit()
-                                cre_partition_success = True
-                                break
-                            except:
-                                type_, value_, traceback_ = sys.exc_info()
-                                exstr = str(traceback.format_exception(type_, value_, traceback_))
-                                print "WARNING: create target partition for this log + table retry {} exception: {}".format(retry, exstr)
-                                time.sleep(1.0)
-                                
-                        if not cre_partition_success:
-                            raise Exception("ABORT - failed to create target partition for this log after max retries - cre_target_pt_sql: {}".format(cre_target_pt_sql))
-        
+                        per_log_table_already_exists = True
+                
+                if per_log_table_already_exists:
+                    print "omit create already existing per_log table:", pltn
+                else:
+                    print "NOT omit create already existing per_log table:", pltn
+                    cre_target_pt_sql = "CREATE TABLE {} PARTITION OF {} FOR VALUES IN ({});".format(pltn, table_name, log_hash)
+                    dprint("cre_target_pt_sql:", cre_target_pt_sql)
+                    cre_partition_success = False
+                    for retry in range(10):
+                        try:
+                            with c as conn:
+                                print("pre cre_target_pt_sql execute")
+                                ret = g_cursor.execute(cre_target_pt_sql)
+                                print("cre_target_pt_sql execute ret: "+str(ret))
+                                g_conn.commit()
+                                print("cre_target_pt_sql commit done")
+                            cre_partition_success = True
+                            break
+                        except:
+                            type_, value_, traceback_ = sys.exc_info()
+                            exstr = str(traceback.format_exception(type_, value_, traceback_))
+                            print "WARNING: create target partition for this log + table retry {} exception: {}".format(retry, exstr)
+                            time.sleep(1.0)
+
+                    if not cre_partition_success:
+                        raise Exception("ABORT - failed to create target partition for this log after max retries - cre_target_pt_sql: {}".format(cre_target_pt_sql))
+
         ###### let sqlite3 dump contents of table into file
         
         table_dump_fp = os.path.join(g_dir_processing_azm, table_name + ".csv")
@@ -802,12 +808,21 @@ def create(args, line):
 
         table_dump_fp_adj = table_dump_fp + "_adj.csv"
         of = open(table_dump_fp,"r")
-        nf = open(table_dump_fp_adj,"wb") # wb required for windows so that \n is 0x0A - otherwise \n will be 0x0D 0x0A and doest go with our fmt file and only 1 row will be inserted per table csv in bulk inserts... 
+        nf = open(table_dump_fp_adj,"wb") # wb required for windows so that \n is 0x0A - otherwise \n will be 0x0D 0x0A and doest go with our fmt file and only 1 row will be inserted per table csv in bulk inserts...
 
+        # dont add lines where all cols are null - bug in older azm files causing COPY to fail...
+        all_cols_null_line = ""
+        for ci in range(len(local_columns)):
+            if ci != 0:
+                all_cols_null_line += ","
+        print "all_cols_null_line:", all_cols_null_line
+        
         while True:
             ofl = of.readline()
             if g_is_postgre:
                 ofl = ofl.replace(',""',',')
+            if ofl.strip() == all_cols_null_line:
+                continue                   
             
             ofl = find_and_conv_spatialite_blob_to_wkb(ofl)
             

@@ -13,6 +13,8 @@ import os
 import sys
 import traceback
 import time
+import datetime
+from dateutil.relativedelta import relativedelta
 
 # global vars
 g_is_postgre = False
@@ -97,11 +99,13 @@ def connect(args):
     elif g_is_postgre:
         print "Connecting... Target DBMS type: PostgreSQL"
         # example: conn = psycopg2.connect("dbname=azqdb user=azqdb")
-        connect_str = "dbname={} user={} password={}".format(
+        connect_str = "dbname={} user={} password={} port={}".format(
                 args['server_database'],
                 args['server_user'],
-            args['server_password']
+            args['server_password'],
+            args['pg_port']
                 )
+        print connect_str
         if args['docker_postgres_server_name'] != None:
             connect_str = "host="+args['docker_postgres_server_name']+" "+connect_str
         #unsafe as users might see in logs print "using connect_str: "+connect_str
@@ -285,7 +289,7 @@ def check_if_already_merged(args, log_ori_file_name):
         
         else:
             type_, value_, traceback_ = sys.exc_info()
-            exstr = traceback.format_exception(type_, value_, traceback_)
+            exstr = str(traceback.format_exception(type_, value_, traceback_))
             print "re-raise exception e - ",exstr
             raise e
         
@@ -490,12 +494,20 @@ def create(args, line):
 
     line_adj = sql_adj_line(line)
     table_name = get_table_name(line_adj)
-    schema_per_log_name = "per_log_{}".format(table_name)
+    schema_per_month_name = "per_month_{}".format(table_name)
 
     if table_name == "logs":
         uline = line.replace('"log_hash" BIGINT,','"log_hash" BIGINT UNIQUE,',1)
         print "'logs' table cre - make log_hash unique for this table: ", uline
         line_adj = sql_adj_line(uline)
+    if table_name == "wifi_scanned":
+        wifi_scanned_MIN_APP_V0 = 3
+        wifi_scanned_MIN_APP_V1 = 0
+        wifi_scanned_MIN_APP_V2 = 742
+        print "check azm apk ver for wifi_scanned table omit: ", args["azm_apk_version"]
+        if args["azm_apk_version"] < wifi_scanned_MIN_APP_V0*1000*1000 + wifi_scanned_MIN_APP_V1*1000 + wifi_scanned_MIN_APP_V2:
+            print "omit invalidly huge wifi_scanned table in older app vers requested by a customer - causes various db issues"
+            return False
         
     if args['import_geom_column_in_location_table_only'] and table_name != "location":
         line_adj = sql_adj_line(line.replace(',"geom" BLOB','',1))
@@ -561,31 +573,31 @@ def create(args, line):
         
         if g_is_postgre:
 
-            if args['pg10_partition_by_log']:
+            if args['pg10_partition_by_month']:
                 if table_name == "logs":
                     # dont partition logs table
                     pass
                 else:
                     # create target partition for this log + table
                     # ok - partition this table
-                    sqlstr = sqlstr.replace(";","") +" PARTITION BY LIST (log_hash);"
+                    sqlstr = sqlstr.replace(";","") +" PARTITION BY RANGE (time);"
                     try:                        
                         with g_conn as c:
-                            g_cursor.execute("SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{}';".format(schema_per_log_name))
+                            g_cursor.execute("SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{}';".format(schema_per_month_name))
                             if bool(g_cursor.rowcount):
-                                print "schema_per_log_name already exists:", schema_per_log_name
+                                print "schema_per_month_name already exists:", schema_per_month_name
                                 pass
                             else:
-                                print "cre schema now because: NOT schema_per_log_name already exists:", schema_per_log_name
+                                print "cre schema now because: NOT schema_per_month_name already exists:", schema_per_month_name
                                 with g_conn as c:
-                                    c_table_per_log_sql = "create schema {};".format(schema_per_log_name)
-                                    ret = g_cursor.execute(c_table_per_log_sql)
+                                    c_table_per_month_sql = "create schema {};".format(schema_per_month_name)
+                                    ret = g_cursor.execute(c_table_per_month_sql)
                                     g_conn.commit()
-                                    print "success: create per_log ["+c_table_per_log_sql+"] success"
+                                    print "success: create per_month ["+c_table_per_month_sql+"] success"
                     except:
                         type_, value_, traceback_ = sys.exc_info()
                         exstr = str(traceback.format_exception(type_, value_, traceback_))
-                        print "WARNING: create table_per_log schema failed:", exstr
+                        print "WARNING: create table_per_month schema failed:", exstr
 
 
             dprint("create sqlstr postgres mod: "+sqlstr)
@@ -691,47 +703,62 @@ def create(args, line):
 
     if g_bulk_insert_mode:
 
-        if args['pg10_partition_by_log']:
+        if args['pg10_partition_by_month']:
             if table_name == "logs":
                 # dont partition logs table
                 pass
             else:
                 log_hash = args['log_hash']
-                ntn = "log_hash_{}".format(log_hash) # simpler name because we got cases where schema's table name got truncated: activate_dedicated_eps_bearer_context_request_params_3170932708
-                pltn = "{}.{}".format(schema_per_log_name, ntn)
-                per_log_table_already_exists = False
-                with g_conn as c:
-                    check_sql = "select * from information_schema.tables where table_schema='{}' and table_name='{}'".format(schema_per_log_name, ntn)
-                    print "check_sql:", check_sql
-                    g_cursor.execute(check_sql)
-                    if bool(g_cursor.rowcount):
-                        per_log_table_already_exists = True
                 
-                if per_log_table_already_exists:
-                    print "omit create already existing per_log table:", pltn
-                else:
-                    print "NOT omit create already existing per_log table:", pltn
-                    cre_target_pt_sql = "CREATE TABLE {} PARTITION OF {} FOR VALUES IN ({});".format(pltn, table_name, log_hash)
-                    dprint("cre_target_pt_sql:", cre_target_pt_sql)
-                    cre_partition_success = False
-                    for retry in range(10):
-                        try:
-                            with c as conn:
-                                print("pre cre_target_pt_sql execute")
-                                ret = g_cursor.execute(cre_target_pt_sql)
-                                print("cre_target_pt_sql execute ret: "+str(ret))
-                                g_conn.commit()
-                                print("cre_target_pt_sql commit done")
-                            cre_partition_success = True
-                            break
-                        except:
-                            type_, value_, traceback_ = sys.exc_info()
-                            exstr = str(traceback.format_exception(type_, value_, traceback_))
-                            print "WARNING: create target partition for this log + table retry {} exception: {}".format(retry, exstr)
-                            time.sleep(1.0)
+                ##  check/create partitions for month for log_hash, prev month, after month
+                ori_log_hash_datetime =  datetime.datetime.fromtimestamp(log_hash & 0xffffffff)  # log_hash lower 32 bits is the timestamp
+                months_pt_check_list = [ori_log_hash_datetime+relativedelta(months=-1), ori_log_hash_datetime, ori_log_hash_datetime+relativedelta(months=+1)]
+                
+                for log_hash_datetime in months_pt_check_list:
+                
+                    log_hash_ym_str = log_hash_datetime.strftime('%Y_%m')
+                    print  "log_hash_datetime:", log_hash_datetime
 
-                    if not cre_partition_success:
-                        raise Exception("ABORT - failed to create target partition for this log after max retries - cre_target_pt_sql: {}".format(cre_target_pt_sql))
+                    ntn = "logs_{}".format(log_hash_ym_str) # simpler name because we got cases where schema's table name got truncated: activate_dedicated_eps_bearer_context_request_params_3170932708
+                    pltn = "{}.{}".format(schema_per_month_name, ntn)
+                    per_month_table_already_exists = False
+                    with g_conn as c:
+                        check_sql = "select * from information_schema.tables where table_schema='{}' and table_name='{}'".format(schema_per_month_name, ntn)
+                        print "check_sql:", check_sql
+                        g_cursor.execute(check_sql)
+                        if bool(g_cursor.rowcount):
+                            per_month_table_already_exists = True
+
+                    if per_month_table_already_exists:
+                        print "omit create already existing per_month table:", pltn
+                    else:
+                        print "NOT omit create already existing per_month table:", pltn
+                        cre_target_pt_sql = "CREATE TABLE {} PARTITION OF {} FOR VALUES from ('{}-1') to ('{}-1');".format(
+                            pltn,
+                            table_name,
+                            log_hash_datetime.strftime("%Y-%m"),
+                            (log_hash_datetime+relativedelta(months=+1)).strftime("%Y-%m")
+                        )
+                        print("cre_target_pt_sql:", cre_target_pt_sql)
+                        cre_partition_success = False
+                        for retry in range(3):
+                            try:
+                                with c as conn:
+                                    print("pre cre_target_pt_sql execute")
+                                    ret = g_cursor.execute(cre_target_pt_sql)
+                                    print("cre_target_pt_sql execute ret: "+str(ret))
+                                    g_conn.commit()
+                                    print("cre_target_pt_sql commit done")
+                                cre_partition_success = True
+                                break
+                            except:
+                                type_, value_, traceback_ = sys.exc_info()
+                                exstr = str(traceback.format_exception(type_, value_, traceback_))
+                                print "WARNING: create target partition for this log + table retry {} exception: {}".format(retry, exstr)
+                                time.sleep(1.0)
+
+                        if not cre_partition_success:
+                            raise Exception("ABORT - failed to create target partition for this log after max retries - cre_target_pt_sql: {}".format(cre_target_pt_sql))
 
         ###### let sqlite3 dump contents of table into file
         
@@ -807,33 +834,57 @@ def create(args, line):
             )
 
         table_dump_fp_adj = table_dump_fp + "_adj.csv"
-        of = open(table_dump_fp,"r")
-        nf = open(table_dump_fp_adj,"wb") # wb required for windows so that \n is 0x0A - otherwise \n will be 0x0D 0x0A and doest go with our fmt file and only 1 row will be inserted per table csv in bulk inserts...
-
+        
         # dont add lines where all cols are null - bug in older azm files causing COPY to fail...
         all_cols_null_line = ""
         for ci in range(len(local_columns)):
             if ci != 0:
                 all_cols_null_line += ","
         print "all_cols_null_line:", all_cols_null_line
-        
-        while True:
-            ofl = of.readline()
-            if g_is_postgre:
-                ofl = ofl.replace(',""',',')
-            if ofl.strip() == all_cols_null_line:
-                continue                   
-            
-            ofl = find_and_conv_spatialite_blob_to_wkb(ofl)
-            
-            if ofl == "":
-                break
-            
-            nf.write(ofl)
-            #nf.write('\n')
-        nf.close()
-        of.close()
 
+        pd_csvadj_success = False
+
+        # trying preliminary version (without geom conv yet) of pandas proved that it was slower than python file looping and also failing at events table so disable for now....
+        """
+        if g_is_postgre:
+            # try use pandas to adjust csv instead of looping through file...
+            try:
+                import pandas as pd
+                df = pd.read_csv(table_dump_fp, header=None, names=local_column_names)
+                print "df.columns:", df.columns
+                print "pd table_dump_fp df len:", len(df)
+                df.geom = None
+                df = df.dropna(how='all')
+                df.to_csv(table_dump_fp_adj, header=None)
+                pd_csvadj_success = True
+            except:
+                type_, value_, traceback_ = sys.exc_info()
+                exstr = str(traceback.format_exception(type_, value_, traceback_))
+                print "pd_csvadj exception:", exstr
+
+        print "pd_csvadj_success:", pd_csvadj_success
+        """
+        
+        if not pd_csvadj_success:
+            with open(table_dump_fp,"rb") as of:
+                with open(table_dump_fp_adj,"wb") as nf:  # wb required for windows so that \n is 0x0A - otherwise \n will be 0x0D 0x0A and doest go with our fmt file and only 1 row will be inserted per table csv in bulk inserts...
+                    while True:
+                        ofl = of.readline()
+                        if g_is_postgre:
+                            ofl = ofl.replace(',""',',')
+
+                        """ no need to check this, only old stale thread versions would have these cases and will have other cases too so let it crash in all those cases
+                        if ofl.strip() == all_cols_null_line:
+                            continue
+                        """                   
+
+                        ofl = find_and_conv_spatialite_blob_to_wkb(ofl)
+
+                        if ofl == "":
+                            break
+
+                        nf.write(ofl)
+                    
         table_dump_fp = table_dump_fp_adj
 
         dprint("dump table: "+table_name+" for bulk insert ret: "+str(ret))

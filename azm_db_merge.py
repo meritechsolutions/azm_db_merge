@@ -55,6 +55,13 @@ def parse_cmd_args():
     
     parser.add_argument('--target_db_type', choices=g_target_db_types,
                         help="Target DBMS type ", required=True)
+
+    parser.add_argument(
+        '--pg_port', help='''Specify postgres port number''',
+        type=int,
+        default=5432,
+        required=False
+    )
     
     parser.add_argument('--target_sqlite3_file', 
                         help="Target sqlite3 file (to create) for merge", required=False)
@@ -166,9 +173,9 @@ python azm_db_merge.py --target_db_type sqlite3 --azm_file example_logs/35809607
                         """,
                         default=False)
 
-    parser.add_argument('--pg10_partition_by_log',
+    parser.add_argument('--pg10_partition_by_month',
                         action='store_true',
-                        help="""For postgresql v10 only - when create tables - do declartive partitioning by log_hash""",
+                        help="""For postgresql v10 only - when create tables - do declartive partitioning by month like '2017_06' etc""",
                         default=False)
     
     args = vars(parser.parse_args())
@@ -452,10 +459,11 @@ def check_azm_azq_app_version(args):
     outstr = subprocess.check_output(cmd).strip()
     outstr = outstr.replace("v","") # replace 'v' prefix - like "v3.0.562" outstr
     parts = outstr.split(".")
-    v0 = int(parts[0])
-    v1 = int(parts[1])
+    v0 = int(parts[0]) * 1000 * 1000
+    v1 = int(parts[1]) * 1000
     v2 = int(parts[2])
-    if (v0 >= MIN_APP_V0 and v1 >= MIN_APP_V1 and v2 >= MIN_APP_V2):
+    args["azm_apk_version"] = v0 + v1 + v2
+    if (args["azm_apk_version"] >= MIN_APP_V0*1000*1000 + MIN_APP_V1*1000 + MIN_APP_V2):
         pass
     else:
         raise Exception("Invalid azm_file: the azm file must be from AZENQOS apps with versions {}.{}.{} or newer.".format(MIN_APP_V0,MIN_APP_V1,MIN_APP_V2))

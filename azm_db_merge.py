@@ -232,7 +232,9 @@ def dump_db_to_sql(dir_processing_azm):
 
 # global vars for handle_sql3_dump_line
 g_is_in_insert = False
+g_is_in_create = False
 g_insert_buf = ""
+g_create_buf = ""
 
 # global module functions
 g_connect_function = None
@@ -247,7 +249,9 @@ g_close_function = None
 # parse multi-line statements info one for insert, parse create, commit commands and call related funcs of target db type module
 def handle_sql3_dump_line(args, line):
     global g_is_in_insert
+    global g_is_in_create
     global g_insert_buf
+    global g_create_buf
     global g_insert_function
         
     if g_is_in_insert is True:
@@ -266,13 +270,29 @@ def handle_sql3_dump_line(args, line):
         else:
             # dprint("multi line insert still not ending - continue")
             return True
+
+    if g_is_in_create:
+        g_create_buf += line.strip()
+        if line.strip().endswith(");"):
+            line = g_create_buf
+            print "multi line create END\ng_is_in_create final line:", line
+        else:
+            return True
         
     is_omit_table = False
    
-    if line.startswith("CREATE TABLE "):
-
+    if line.startswith("CREATE TABLE ") or g_is_in_create:
+        g_is_in_create = False
+        
         # in case user is using already 'sqlite3 merged azqdata.db' there will be the CREATE TABLE IF NOT EXISTS lines which we created - restore it...
         line = line.replace("CREATE TABLE IF NOT EXISTS ","CREATE TABLE ",1)
+
+        if not line.strip().endswith(");"):
+            print("multi line create START")
+            g_is_in_create = True
+            g_create_buf = line.strip()
+            return True
+
         
         table_name = line.split(" (")[0].replace("CREATE TABLE ","").replace("\"","")
         dprint("check table_name is_omit_table: "+table_name)
@@ -341,7 +361,7 @@ def handle_sql3_dump_line(args, line):
             handle_ret = g_insert_function(args, line_stripped)            
             return handle_ret
         else:
-            # dprint("multi line insert START")
+            dprint("multi line insert START")
             g_is_in_insert = True
             g_insert_buf = line
             return True

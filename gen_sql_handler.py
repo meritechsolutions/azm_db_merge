@@ -1019,6 +1019,7 @@ def sql_adj_line(line):
         sqlstr = sqlstr.replace("\" DATETIME", "\" timestamp")
         sqlstr = sqlstr.replace("\" datetime", "\" timestamp")
         sqlstr = sqlstr.replace("\" BLOB", "\" bytea")
+        sqlstr = sqlstr.replace('" string', '" text')
         
     if g_is_ms:
         sqlstr = sqlstr.replace("\" BLOB", "\" varbinary(MAX)")

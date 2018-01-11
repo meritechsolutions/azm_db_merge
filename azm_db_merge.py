@@ -177,6 +177,11 @@ python azm_db_merge.py --target_db_type sqlite3 --azm_file example_logs/35809607
                         action='store_true',
                         help="""For postgresql v10 only - when create tables - do declartive partitioning by month like '2017_06' etc""",
                         default=False)
+
+    parser.add_argument('--pg10_partition_index_log_hash',
+                        action='store_true',
+                        help="""For postgresql v10 only - when creating partitions, set log_hash as the index of the table""",
+                        default=False)
     
     args = vars(parser.parse_args())
     return args

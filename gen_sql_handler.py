@@ -739,6 +739,10 @@ def create(args, line):
                             log_hash_datetime.strftime("%Y-%m"),
                             (log_hash_datetime+relativedelta(months=+1)).strftime("%Y-%m")
                         )
+                        if args['pg10_partition_index_log_hash']:
+                            cre_index_for_pt_sql = "CREATE INDEX ON {} (log_hash);".format(pltn)
+                            cre_target_pt_sql += " "+cre_index_for_pt_sql
+                            
                         print("cre_target_pt_sql:", cre_target_pt_sql)
                         cre_partition_success = False
                         for retry in range(3):

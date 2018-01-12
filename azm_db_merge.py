@@ -422,6 +422,38 @@ def unzip_azm_to_tmp_folder(args):
     try:
         azm = zipfile.ZipFile(args['azm_file'],'r')
         azm.extract("azqdata.db", dir_processing_azm)
+
+        try:
+            # handle malformed db cases
+            
+            import pandas as pd
+            import sqlite3
+            
+            dbfile = os.path.join(dir_processing_azm, "azqdata.db")
+            dbcon = sqlite3.connect(dbfile)
+            integ_check_df = pd.read_sql("PRAGMA integrity_check;", dbcon)
+            try:
+                dbcon.close()  # we dont use dbcon in further azm_db_merge code, and db file can be removed if integ not ok - avoid file locks
+            except:
+                pass
+            print "azm_db_merge: sqlite db integ_check_df first row:", integ_check_df.iloc[0]
+            if integ_check_df.iloc[0].integrity_check == "ok":
+                print "azm_db_merge: sqlite3 db integrity check ok"
+            else:
+                print "azm_db_merge: sqlite3 db integrity check failed - try recover..."
+                dump_ret = subprocess.call("sqlite3 '{}' .dump > '{}.txt'".format(dbfile, dbfile),shell=True)
+                print "azm_db_merge: dump_ret:", dump_ret
+                if dump_ret != 0:
+                    print "WARNING: azm_db_merge: recov corrupt sqlite db file - failed to dump sqlite db file"
+                else:
+                    os.remove(dbfile)
+                    import_ret = subprocess.call("sqlite3 '{}' < '{}.txt'".format(dbfile, dbfile), shell=True)
+                    print "azm_db_merge: recov corrupt db file import ret:", import_ret                    
+        except:
+            type_, value_, traceback_ = sys.exc_info()
+            exstr = traceback.format_exception(type_, value_, traceback_)
+            print "WARNING: check malformed db exception:", exstr
+        
         if args['get_schema_shasum_and_exit']:
             print "get_schema_shasum_and_exit start"
             sha1 = hashlib.sha1()

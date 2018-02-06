@@ -1,7 +1,8 @@
 azm_db_merge 
 ============
 
-Import all LTE/WCDMA/GSM test data (radio parameters, Layer-3 messages, etc) from [AZENQOS Android](http://www.azenqos.com) test logs (.azm files) into [PostgreSQL](https://www.postgresql.org/) or [Microsoft SQL Server](https://www.microsoft.com/en-us/sql-server/) for further Big data radio access network analysis/research/reporting through your own SQL queries and/or with [QGIS](http://www.qgis.org/).
+Import all LTE/WCDMA/GSM test data (radio parameters, Layer-3 messages, etc) from [AZENQOS Android](http://www.azenqos.com) test logs (.azm files) into [PostgreSQL](https://www.postgresql.org/) for further somewhat 'Big data' radio access network analysis/research/reporting through your own SQL queries and/or with [QGIS](http://www.qgis.org/).
+
 
 **Some usage screenshots:**
 
@@ -16,8 +17,7 @@ Using pgadmin to query Layer-3 messages (the 'info' column contains the decoded 
 
 For further info on the data structure and how to access the imported data, please see the section **[How to access the imported data](#how-to-access-the-imported-data)** further below.
 
-The current azm_db_merge support for PostgreSQL and Microsoft SQL Server implementation (through pyodbc + "SQL Server Natve Client 11.0" ODBC driver)
- has full support for all azm_db_merge features:
+The current azm_db_merge support for PostgreSQL has full support for all azm_db_merge features:
 - auto table create
 - if table already exists in server, auto add of coulmns found in .azm to server
 - very fast import speed through bulk insert operations. (A 1 hour lte/wcdma drive takes about 10 seconds to import for MSSQL and around 4.3 seconds for PostgreSQL).
@@ -79,16 +79,11 @@ Please open example GNU/Linux shell script files named below in a text editor:
   - [ex_postgre_unmerge_azm.sh](ex_postgre_unmerge_azm.sh)
   - [ex_postgre_unmerge_folder.sh](ex_postgre_unmerge_folder.sh)
   
+---
 
-### Microsoft SQL Server examples:
+*Microsoft SQL Server - deprecated - we do not support MS SQL Server import anymore as all our new features, servers and azm_db_merge users are on PostgreSQL only.*
 
-Please open example Windows bat files named below in a text editor:
-- merge:
-  - [ex_mssql_import_azm.bat](ex_mssql_import_azm.bat)
-  - [ex_mssql_import_azm_folder.bat](ex_mssql_import_azm_folder.bat)
-- unmerge:
-  - [ex_mssql_remove_azm.bat](ex_mssql_remove_azm.bat)
-  - [ex_mssql_remove_azm_folder.bat](ex_mssql_remove_azm_folder.bat)
+---
 
 
 ### SQLite example:
@@ -126,31 +121,6 @@ Below we detail a bit about the different connection setup instead of the 'spati
 
 - In QGIS > Browser Panel > right-click 'PostGIS' > New Connection... and fill in your database info/credentials - example plot:
 ![](example_screenshots/qgis_plot_rsrp_from_azm_db_merge_postgres_postgis.png)
-
-#### QGIS Connection: Microsoft SQL Server
-
-- Make sure you already created the ODBC "Native Client" connection as described in SETUP.md first.
-
-- Try run azm_db_merge to merge/unmerge - check the output for "using connect_str:" like below line:
-<pre>using connect_str: DRIVER={SQL Server Native Client 11.0};SERVER=localhost;DATABASE=azqdb;UID=azqdblogin;PWD=pass</pre>
-  - This is your 'Provider/DSN' - starting from DRIVER=... so in above case it is: 
-    <pre>DRIVER={SQL Server Native Client 11.0};SERVER=localhost;DATABASE=azqdb;UID=azqdblogin;PWD=pass</pre>
-
-- In QGIS > Browser Panel > right-click 'MSSQL' > New Connection...
-
-- Enter "Provider/DSN" copied from your output as mentioned above.
-
-- Uncheck "Only look in geometry_columns metadata table"
-![](example_screenshots/qgis_connect_mssql_example0.png)
-
-- Press 'List Databases' and 'Test Connection'
-
-- Press 'OK'
-
-- Double-click your new connection and wait a few seconds for it to list available tables that have plottable (geometry) columns.
-
-- Double-click on the tables you want to show and customize normally as in QGIS usage - example LTE RSRP plot:
-![](example_screenshots/qgis_plot_rsrp_from_azm_db_merge_mssql.png)
 
 #### QGIS Connection: merged sqlite3 or original azqdata.db inside each ".azm" file
 - You can also use QGIS to directly open the [SQLite](https://sqlite.org/) 'azqdata.db' inside each ".azm" file (without using azm_db_merge - and also query it with any SQLite browser) or the merged sqlite3 database files you merged with azm_db_merge.

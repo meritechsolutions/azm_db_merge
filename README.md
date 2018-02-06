@@ -81,7 +81,7 @@ Please open example GNU/Linux shell script files named below in a text editor:
   
 ---
 
-*Microsoft SQL Server - deprecated - we do not support MS SQL Server import anymore as all our new features, servers and azm_db_merge users are on PostgreSQL only.*
+*Microsoft SQL Server support is now deprecated - we do not support MS SQL Server import anymore as all our new features, servers and azm_db_merge users are on PostgreSQL only.*
 
 ---
 
@@ -182,13 +182,13 @@ Special Thanks
 
 - Thanks to the [psycopg2](http://initd.org/psycopg/) project for providing simple, stable, fast PostgreSQL access.
 
-- Thanks to the [pyodbc](https://mkleehammer.github.io/pyodbc/) project for providing simple, stable, fast ODBC (to Microsoft SQL Server) access.
+- Thanks to the [pyodbc](https://mkleehammer.github.io/pyodbc/) project for providing simple, stable, fast ODBC (to Microsoft SQL Server) access. (MS SQL Server import support is now deprecated)
 
 - Thanks to [SQLite](https://sqlite.org/) for their fast, light, powerful DBMS.
 
 - Thanks to [PostgreSQL](https://www.postgresql.org/) for their advanced, fast, powerful DBMS.
 
-- Thanks to Microsoft for providing [SQL Server 2014 Developer Edition for FREE](https://blogs.technet.microsoft.com/dataplatforminsider/2016/03/31/microsoft-sql-server-developer-edition-is-now-free/).
+- Thanks to Microsoft for providing [SQL Server 2014 Developer Edition for FREE](https://blogs.technet.microsoft.com/dataplatforminsider/2016/03/31/microsoft-sql-server-developer-edition-is-now-free/). (MS SQL Server import support is now deprecated)
 
 
 License

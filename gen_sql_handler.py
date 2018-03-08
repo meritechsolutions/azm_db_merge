@@ -15,6 +15,8 @@ import traceback
 import time
 import datetime
 from dateutil.relativedelta import relativedelta
+import random
+
 
 # global vars
 g_is_postgre = False
@@ -581,7 +583,7 @@ def create(args, line):
                     # create target partition for this log + table
                     # ok - partition this table
                     sqlstr = sqlstr.replace(";","") +" PARTITION BY RANGE (time);"
-                    try:                        
+                    try:
                         with g_conn as c:
                             g_cursor.execute("SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{}';".format(schema_per_month_name))
                             if bool(g_cursor.rowcount):
@@ -597,7 +599,7 @@ def create(args, line):
                     except:
                         type_, value_, traceback_ = sys.exc_info()
                         exstr = str(traceback.format_exception(type_, value_, traceback_))
-                        print "WARNING: create table_per_month schema failed:", exstr
+                        print "WARNING: create table_per_month schema failed - next insert/COPY commands would likely faile now - exstr:", exstr
 
 
             dprint("create sqlstr postgres mod: "+sqlstr)
@@ -616,7 +618,6 @@ def create(args, line):
                 if bool(g_cursor.rowcount):
                     print "omit already existing table - raise exception to check columns instead"
                     raise Exception("table {} already exists - no need to create".format(table_name))
-                    
         
         ret = None
         # use with for auto rollback() on g_conn on expected fails like already exists
@@ -688,9 +689,7 @@ def create(args, line):
                 
                 sqlstr = sql_adj_line(alter_str)
                 print "execute alter_str: " + sqlstr
-                ret = g_cursor.execute(sqlstr)
-                print "execute alter_str done - commit now (commit required for alter otherwise the next COPY cmds wont work..."
-                g_conn.commit()
+                exec_creatept_or_alter_handle_concurrency(sqlstr)
                 
                 # re-get remote cols
                 remote_columns = get_remote_columns(args, table_name)
@@ -743,26 +742,8 @@ def create(args, line):
                             cre_index_for_pt_sql = "CREATE INDEX ON {} (log_hash);".format(pltn)
                             cre_target_pt_sql += " "+cre_index_for_pt_sql
                             
-                        print("cre_target_pt_sql:", cre_target_pt_sql)
-                        cre_partition_success = False
-                        for retry in range(3):
-                            try:
-                                with c as conn:
-                                    print("pre cre_target_pt_sql execute")
-                                    ret = g_cursor.execute(cre_target_pt_sql)
-                                    print("cre_target_pt_sql execute ret: "+str(ret))
-                                    g_conn.commit()
-                                    print("cre_target_pt_sql commit done")
-                                cre_partition_success = True
-                                break
-                            except:
-                                type_, value_, traceback_ = sys.exc_info()
-                                exstr = str(traceback.format_exception(type_, value_, traceback_))
-                                print "WARNING: create target partition for this log + table retry {} exception: {}".format(retry, exstr)
-                                time.sleep(1.0)
-
-                        if not cre_partition_success:
-                            raise Exception("ABORT - failed to create target partition for this log after max retries - cre_target_pt_sql: {}".format(cre_target_pt_sql))
+                        print("cre_target_pt_sql:", cre_target_pt_sql)                        
+                        exec_creatept_or_alter_handle_concurrency(cre_target_pt_sql, allow_exstr_list=[" already exists"])
 
         ###### let sqlite3 dump contents of table into file
         
@@ -1097,3 +1078,51 @@ def get_remote_columns(args, table_name):
         return remote_columns
 
 
+def exec_creatept_or_alter_handle_concurrency(sqlstr, raise_exception_if_fail=True, allow_exstr_list=[]):
+    global g_conn
+    global g_cursor
+
+    print("exec_creatept_or_alter_handle_concurrency START sqlstr: {}".format(sqlstr))
+    
+    ret = False
+    prev_exstr = ""
+
+    exec_creatept_or_alter_handle_concurrency_max_retries = 200
+    
+    for retry in range(exec_creatept_or_alter_handle_concurrency_max_retries):
+        try:
+            
+            # use with for auto rollback() on g_conn on expected fails like already exists
+            with g_conn as con:
+                print("exec_creatept_or_alter_handle_concurrency retry {} sqlstr: {}".format(retry, sqlstr))
+                execret = g_cursor.execute(sqlstr)
+                print("exec_creatept_or_alter_handle_concurrency retry {} sqlstr: {} execret: {}".format(retry, sqlstr, execret))
+
+                # commit now otherwise upcoming COPY commands might not see partitions
+                con.commit()
+                print("exec_creatept_or_alter_handle_concurrency commit done")
+            ret = True
+            break
+        except:
+            type_, value_, traceback_ = sys.exc_info()
+            exstr = str(traceback.format_exception(type_, value_, traceback_))
+
+            for allow_case in allow_exstr_list:
+                if allow_case in exstr:
+                    print "exec_creatept_or_alter_handle_concurrency got exception but matches allow_exstr_list allow_case: {} - so treat as success".format(allow_case)
+                    ret = True
+                    break
+            if ret == True:
+                break
+            
+            prev_exstr = "WARNING: exec_creatept_or_alter_handle_concurrency retry {} exception: {}".format(retry, exstr)
+            print prev_exstr
+            sleep_dur = random.random() + 0.5
+            time.sleep(sleep_dur)
+            
+    print("exec_creatept_or_alter_handle_concurrency DONE sqlstr: {} - ret {}".format(sqlstr, ret))
+
+    if ret is False and raise_exception_if_fail:
+        raise Exception("exec_creatept_or_alter_handle_concurrency FAILED after max retries: {} prev_exstr: {}".format(exec_creatept_or_alter_handle_concurrency_max_retries, prev_exstr))
+    
+    return ret

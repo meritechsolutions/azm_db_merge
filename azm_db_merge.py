@@ -315,6 +315,7 @@ def handle_sql3_dump_line(args, line):
     if (
             line.startswith("CREATE TABLE ") and
             not line.startswith("CREATE TABLE android_metadata") and
+            not ("_layer_statistics" in line) and
             not is_omit_table
     ):
 

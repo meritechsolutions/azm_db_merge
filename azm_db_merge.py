@@ -423,6 +423,10 @@ def unzip_azm_to_tmp_folder(args):
     try:
         azm = zipfile.ZipFile(args['azm_file'],'r')
         azm.extract("azqdata.db", dir_processing_azm)
+        try:
+            azm.extract("azqdata.db-journal", dir_processing_azm)
+        except Exception as je:
+            print "WARNING: No azqdata.db-journal found in azm file (this is normal for azm files from AZENQOS app versions older than 3.0.865:", je
 
         try:
             # handle malformed db cases

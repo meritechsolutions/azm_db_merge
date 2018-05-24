@@ -683,28 +683,24 @@ def process_azm_file(args):
         if ret == False:
             raise Exception("FATAL: connect_function failed")
             
-        # check if this azm is already imported/merged in target db (and exit of already imported)
-        # get log_ori_file_name
-        sqlstr = "select log_ori_file_name from logs limit 1"
-        cmd = [args['sqlite3_executable'],args['file'],sqlstr]
-        outstr = subprocess.check_output(cmd)
-        log_ori_file_name = outstr.strip()
-        if (not ".azm" in log_ori_file_name):
-            raise Exception("FATAL: Failed to get log_ori_file_name from logs table of this azm's db - ABORT.")
         
         if (args['unmerge']):
             print "### unmerge mode"
             # unmerge mode would be handled by same check_if_already_merged_function below - the 'unmerge' flag is in args
-        
-        g_check_if_already_merged_function(args, log_ori_file_name)
 
-        # now get log_hash
+        # check if this azm is already imported/merged in target db (and exit of already imported)
+        # get log_hash
         sqlstr = "select log_hash from logs limit 1"
         cmd = [args['sqlite3_executable'],args['file'],sqlstr]
         outstr = subprocess.check_output(cmd)
         log_hash = outstr.strip()
         args['log_hash'] = long(log_hash)
-        
+
+        if log_hash == 0:
+            raise Exception("FATAL: invalid log_hash == 0 case")
+
+        g_check_if_already_merged_function(args, log_hash)
+                
         ''' now we're connected and ready to import, open dumped file and hadle CREATE/INSERT
         operations for current target_type (DBMS type)'''
         

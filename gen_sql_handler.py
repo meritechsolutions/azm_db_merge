@@ -204,7 +204,7 @@ def try_cre_postgis(schema="public"):
             raise e
 
 
-def check_if_already_merged(args, log_ori_file_name):    
+def check_if_already_merged(args, log_hash):    
     global g_unmerge_logs_row
     global g_cursor
     global g_exec_buf
@@ -214,9 +214,8 @@ def check_if_already_merged(args, log_ori_file_name):
         g_cursor.execute("SET search_path = '{}','public';".format(args["pg_schema"]))
     
     try:
-        print "checking if this log has already been imported/merged: "+log_ori_file_name
-        # select log_ori_file_name from logs where log_ori_file_name like '358096071732800 16_11_2016 17.14.15.azm'
-        sqlstr = "select \"log_hash\" from \"logs\" where \"log_ori_file_name\" like ?"
+        print "checking if this log_hash has already been imported/merged: "+log_hash
+        sqlstr = "select \"log_hash\" from \"logs\" where \"log_hash\" = ?"
         if g_is_postgre:
             sqlstr = sqlstr.replace("?","%s")
         print("check log cmd: "+sqlstr)
@@ -226,7 +225,7 @@ def check_if_already_merged(args, log_ori_file_name):
         # use with for auto rollback() on g_conn on exception - otherwise we cant use the cursor again - would fail as: current transaction is aborted, commands ignored until end of transaction block
         ret = None
         with g_conn as c:
-            ret = g_cursor.execute(sqlstr, [log_ori_file_name])
+            ret = g_cursor.execute(sqlstr, [log_hash])
             row = g_cursor.fetchone()
 
         print("after cmd check if exists row:", row)
@@ -271,13 +270,13 @@ def check_if_already_merged(args, log_ori_file_name):
                 print "### unmerge mode - delete start for azm: log_hash {}".format(row['log_hash'])
                 g_unmerge_logs_row = row
                 
-                sqlstr = "delete from \"logs\" where \"log_ori_file_name\" like '{}'".format(log_ori_file_name)
+                sqlstr = "delete from \"logs\" where \"log_hash\" = '{}'".format(log_hash)
                 
                 g_exec_buf.append(sqlstr)
                 print "delete from logs table added to g_exec_buf..."
                 
             else:
-                raise Exception("ABORT: This log ({}) has already been imported/exists in target db (use --unmerge to remove first if you want to re-import).".format(log_ori_file_name))
+                raise Exception("ABORT: This log ({}) has already been imported/exists in target db (use --unmerge to remove first if you want to re-import).".format(log_hash))
                 
                                              
     except Exception as e:

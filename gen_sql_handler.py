@@ -358,15 +358,16 @@ def commit(args, line):
     return True
 
 def find_and_conv_spatialite_blob_to_wkb(csv_line):
+    #print "fac csv_line:", csv_line
     spat_blob_offset = csv_line.find('0001E6100000')
     if spat_blob_offset == -1:
-        dprint
         return csv_line
     part = csv_line[spat_blob_offset:spat_blob_offset+120+1]
+    #print "part[120]:", part[120]
     dprint("csv_line spatialite_geom_part: "+part)
 
     spatialite_geom_contents = ""
-    if (g_is_postgre and part[120] == ',') or (g_is_ms and part[120] == '\t'):
+    if (g_is_postgre and (part[120] == ',' or part[120] == '\n')) or (g_is_ms and part[120] == '\t'):
         spatialite_geom_contents = part[0:120]
     else:
         dprint("check of spatialite_geom_part - failed - abort")
@@ -999,10 +1000,14 @@ def sql_adj_line(line):
 
     sqlstr = sqlstr.replace('"geom" BLOB','"geom" geometry',1)
 
+    # sqlite pandas regen db uses lowercase
+    sqlstr = sqlstr.replace('"geom" blob','"geom" geometry',1)
+
     if g_is_postgre:
         sqlstr = sqlstr.replace("\" DATETIME", "\" timestamp")
         sqlstr = sqlstr.replace("\" datetime", "\" timestamp")
         sqlstr = sqlstr.replace("\" BLOB", "\" bytea")
+        sqlstr = sqlstr.replace("\" blob", "\" bytea")
         sqlstr = sqlstr.replace('" string', '" text')
         
     if g_is_ms:

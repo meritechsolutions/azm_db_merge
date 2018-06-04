@@ -524,7 +524,7 @@ def check_azm_azq_app_version(args):
     if (args["azm_apk_version"] >= MIN_APP_V0*1000*1000 + MIN_APP_V1*1000 + MIN_APP_V2):
         pass
     else:
-        print "WARNING: azm too old - azm file must be from AZENQOS apps with versions {}.{}.{} or newer.".format(MIN_APP_V0,MIN_APP_V1,MIN_APP_V2))
+        print "WARNING: azm too old - azm file must be from AZENQOS apps with versions {}.{}.{} or newer.".format(MIN_APP_V0,MIN_APP_V1,MIN_APP_V2)
 
 def mv_azm_to_target_folder(args):
     mv_target_folder = args['move_imported_azm_files_to_folder']

@@ -659,6 +659,14 @@ def create(args, line):
             for col in local_columns:
                 col_name = col[0]
                 col_type = col[1]
+
+                ####### quickfix: col_type override for unsigned int32 cols from sqlite (bindLong already) - conv to bigint in pg as pg doesnt have unsigned
+                if col_name == "lte_volte_rtp_source_ssrc":
+                    # might need to psql to do first: alter table all_logs.lte_volte_rtp_msg drop column "lte_volte_rtp_source_ssrc";
+
+                    col_type = "bigint"                
+                #######################
+                
                 is_already_in_table = col_name in remote_column_names
                 dprint("local_col_name: " + col_name +
                        " col_type: " + col_type +

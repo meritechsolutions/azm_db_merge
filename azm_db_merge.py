@@ -124,7 +124,7 @@ def parse_cmd_args():
                         default=False)
 
     parser.add_argument('--call_preprocess_func_in_module_before_import',
-                        help="""Specify a pyhon module (.py file) that has the function 'preprocess(dir_processing_azm)' to be called before importing the 'azqdata.db' file. If you have multiple modules/functions to preprocess - simply make and specify a module that calls all of them.""",
+                        help="""Specify a python module (.py file) that has the function 'preprocess(dir_processing_azm)' to be called before importing the 'azqdata.db' file. If you have multiple modules/functions to preprocess - simply make and specify a module that calls all of them.""",
                         default=None)
 
     parser.add_argument('--dry',

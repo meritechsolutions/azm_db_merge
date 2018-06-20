@@ -661,9 +661,11 @@ def create(args, line):
                 col_type = col[1]
 
                 ####### quickfix: col_type override for unsigned int32 cols from sqlite (bindLong already) - conv to bigint in pg as pg doesnt have unsigned
-                if col_name == "lte_volte_rtp_source_ssrc":
-                    # might need to psql to do first: alter table all_logs.lte_volte_rtp_msg drop column "lte_volte_rtp_source_ssrc";
-
+                if col_name == "lte_volte_rtp_source_ssrc" or col_name == "lte_volte_rtp_timestamp":
+                    # might need to psql to do first manually if log was already imported using older azm_db_merge:
+                    # alter table all_logs.lte_volte_rtp_msg alter column lte_volte_rtp_source_ssrc type bigint;
+                    # alter table all_logs.lte_volte_rtp_msg alter column lte_volte_rtp_timestamp type bigint;
+                    
                     col_type = "bigint"                
                 #######################
                 

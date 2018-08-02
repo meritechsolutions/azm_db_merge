@@ -191,7 +191,7 @@ def is_dump_schema_only_for_target_db_type(args):
     # now force bulk so always schema only
     return True
     
-
+"""
 def popen_sqlite3_dump(args):
     params = [
         args['sqlite3_executable'],
@@ -203,7 +203,7 @@ def popen_sqlite3_dump(args):
     else:
         params.append(".dump")
     
-    dprint("popen_sqlite3_dump params: "+str(params))
+    print("popen_sqlite3_dump params: "+str(params))
     sub = subprocess.Popen(
         params,
         bufsize = -1, # -1 means default of OS. If no buf then it will block sqlite and very slow
@@ -214,6 +214,7 @@ def popen_sqlite3_dump(args):
         )
     dprint("subporcess popen done")
     return sub
+"""
 
 # Dump db to a text sql file
 def dump_db_to_sql(dir_processing_azm):
@@ -222,7 +223,7 @@ def dump_db_to_sql(dir_processing_azm):
         "{}".format(args['sqlite3_executable']),
         "{}".format(args['file']),
         ".out {}".format(dumped_sql_fp.replace("\\", "\\\\")),
-        ".dump"
+        ".schema" if (is_dump_schema_only_for_target_db_type(args)) else ".dump"
     ]
      
     print "cmd: ",cmd
@@ -321,7 +322,18 @@ def handle_sql3_dump_line(args, line):
 
         # get table name:
         table_name = line.split(" ")[2].replace("\"", "")
-        
+
+        if not args['unmerge']:
+            print "firt delete all rows with wrong modem timestamp before y2k for this table:", table_name
+            sqlstr = "delete from {} where time < '2000-01-01 00:00:00.00';".format(table_name)
+            cmd = [args['sqlite3_executable'],args['file'],sqlstr]
+            print "call cmd:", cmd
+            try:
+                outstr = subprocess.check_output(cmd)
+                print "delete from ret outstr:", outstr
+            except Exception as se:
+                print "WARNING: delete pre y2k rows from table failed exception:", se
+
         print("\nprocessing: create/alter/insert for table_name: "+table_name)
         
         # check if create is required for this table (omit if empty)
@@ -333,6 +345,7 @@ def handle_sql3_dump_line(args, line):
             print("checking if table is empty ...")
             sqlstr = "SELECT 1 FROM {} LIMIT 1".format(table_name)
             cmd = [args['sqlite3_executable'],args['file'],sqlstr]
+            print "call cmd:", cmd
             outstr = subprocess.check_output(cmd)
             # print "check has_rows out: "+outstr
             has_rows = (outstr.strip() == "1")
@@ -461,7 +474,9 @@ def unzip_azm_to_tmp_folder(args):
             #print "get_schema_shasum_and_exit 1"
             dbfile = os.path.join(dir_processing_azm,"azqdata.db")
             #print "get_schema_shasum_and_exit 2"
-            schema = subprocess.check_output([args['sqlite3_executable'],dbfile,".schema"])
+            cmd = [args['sqlite3_executable'],dbfile,".schema"]
+            print "call cmd:", cmd
+            schema = subprocess.check_output(cmd)
             #print "get_schema_shasum_and_exit 3"
             sha1.update(schema)
             #print "get_schema_shasum_and_exit 4"
@@ -514,6 +529,7 @@ def check_azm_azq_app_version(args):
     MIN_APP_V2 = 587
     sqlstr = "select log_app_version from logs" # there is always only 1 ver of AZENQOS app for 1 azm - and normally 1 row of logs per azm too - but limit just in-case to be future-proof 
     cmd = [args['sqlite3_executable'],args['file'],sqlstr]
+    print "call cmd:", cmd
     outstr = subprocess.check_output(cmd).strip()
     outstr = outstr.replace("v","") # replace 'v' prefix - like "v3.0.562" outstr
     parts = outstr.split(".")
@@ -595,16 +611,19 @@ def process_azm_file(args):
             if args['target_sqlite3_file'] is None:
                 raise Exception("INVALID: sqlite3 merge mode requires --target_sqlite3_file option to be specified - ABORT")            
             else:
-                use_popen_mode = False # dump to .sql file for .read 
-            
+                use_popen_mode = False # dump to .sql file for .read
+
+        print "NOTE: now we delete pre y2k rows and if it was popen then the delete would error as 'database is locked' so always dump schema to sql - so force set use_popen_mode = False"
+        use_popen_mode = False
+
         if (use_popen_mode):
             print "using live in-memory pipe of sqlite3 dump output parse mode"
         else:
             print "using full dump of sqlite3 to file mode"
         
-        
         dump_process = None
         dumped_sql_fp = None
+
         
         if (use_popen_mode):
             print("starting sqlite3 subporcess...")
@@ -692,6 +711,7 @@ def process_azm_file(args):
         # get log_hash
         sqlstr = "select log_hash from logs limit 1"
         cmd = [args['sqlite3_executable'],args['file'],sqlstr]
+        print "call cmd:", cmd
         outstr = subprocess.check_output(cmd)
         log_hash = outstr.strip()
         args['log_hash'] = long(log_hash)
@@ -705,7 +725,7 @@ def process_azm_file(args):
         operations for current target_type (DBMS type)'''
         
         if (use_popen_mode == False):
-            sql_dump_file = open(dumped_sql_fp, 'r')
+            sql_dump_file = open(dumped_sql_fp, 'rb')
         
         # output for try manual import mode
         # args['out_sql_dump_file'] = open("out_for_dbtype_{}.sql".format(args['file']), 'w')
@@ -952,6 +972,7 @@ if args['add_imei_id_to_all_tables']:
     where = "where {} != ''".format(col) # not null and not empty
     sqlstr = "select {} from {} {} order by seqid desc limit 1;".format(col, table, where)
     cmd = [args['sqlite3_executable'],args['file'],sqlstr]
+    print "call cmd:", cmd
     imei = subprocess.check_output(cmd).strip()
     args['imei'] = imei
 

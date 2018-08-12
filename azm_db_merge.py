@@ -26,6 +26,8 @@ import uuid
 import traceback
 import fnmatch
 import hashlib
+from datetime import datetime
+from datetime import timedelta
 
 # global vars
 g_target_db_types = ['postgresql','mssql','sqlite3']
@@ -324,8 +326,9 @@ def handle_sql3_dump_line(args, line):
         table_name = line.split(" ")[2].replace("\"", "")
 
         if not args['unmerge']:
-            print "firt delete all rows with wrong modem timestamp before y2k for this table:", table_name
-            sqlstr = "delete from {} where time < '2000-01-01 00:00:00.00';".format(table_name)
+            print "firt delete all rows with wrong modem timestamp before 48h of log_start_time and log_end_time for this table:", table_name
+            
+            sqlstr = "delete from {} where time < '{}' or time > '{}';".format(table_name, args['log_data_min_time'], args['log_data_max_time'])
             cmd = [args['sqlite3_executable'],args['file'],sqlstr]
             print "call cmd:", cmd
             try:
@@ -719,6 +722,45 @@ def process_azm_file(args):
         if log_hash == 0:
             raise Exception("FATAL: invalid log_hash == 0 case")
 
+
+        args['log_start_time_str'] = get_sql_result(
+            "select log_start_time from logs limit 1",
+            args
+        )
+        args['log_end_time_str'] = get_sql_result(
+            "select log_end_time from logs limit 1",
+            args
+        )
+
+        
+        args['log_start_time'] = get_sql_result(
+            "select strftime('%s', log_start_time) from logs limit 1",
+            args
+        )
+        print "parse log_start_time:", args['log_start_time']
+        args['log_start_time'] = datetime.fromtimestamp(long(args['log_start_time']))
+        print "args['log_start_time']:", args['log_start_time']
+        print "args['log_start_time_str']:", args['log_start_time_str']
+
+        args['log_end_time'] = get_sql_result(
+            "select strftime('%s', log_end_time) from logs limit 1",
+            args
+        )
+        print "parse log_end_time:", args['log_start_time']
+        args['log_end_time'] = datetime.fromtimestamp(long(args['log_end_time']))
+        print "args['log_end_time']:", args['log_end_time']
+        print "args['log_end_time_str']:", args['log_end_time_str']
+
+        args['log_data_min_time'] = args['log_start_time'] - timedelta(hours=48)
+        print "args['log_data_min_time']:", args['log_data_min_time']
+        
+        args['log_data_max_time'] = args['log_end_time'] + timedelta(hours=48)
+        print "args['log_data_max_time']:", args['log_data_max_time']
+
+
+        if log_hash == 0:
+            raise Exception("FATAL: invalid log_hash == 0 case")
+
         g_check_if_already_merged_function(args, log_hash)
                 
         ''' now we're connected and ready to import, open dumped file and hadle CREATE/INSERT
@@ -831,6 +873,15 @@ def sigterm_handler(_signo, _stack_frame):
     print "azm_db_merge.py: received SIGTERM - exit(0) now..."
     sys.exit(0)
     return
+
+
+def get_sql_result(sqlstr, args):
+    cmd = [args['sqlite3_executable'],args['file'],sqlstr]
+    print "get_sql_result cmd:", cmd
+    outstr = subprocess.check_output(cmd)
+    result = outstr.strip()
+    return result
+
 
 #################### Program START
 

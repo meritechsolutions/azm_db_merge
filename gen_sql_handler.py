@@ -108,8 +108,8 @@ def connect(args):
             args['pg_port']
                 )
         print connect_str
-        if args['docker_postgres_server_name'] != None:
-            connect_str = "host="+args['docker_postgres_server_name']+" "+connect_str
+        if args['pg_host'] != None:
+            connect_str = "host="+args['pg_host']+" "+connect_str
         #unsafe as users might see in logs print "using connect_str: "+connect_str
         args['connect_str'] = connect_str
         g_conn = psycopg2.connect(connect_str)
@@ -347,9 +347,16 @@ def commit(args, line):
     
     i = 0
     for buf in g_exec_buf:
+        if isinstance(buf, tuple):
+            # for COPY from stdin
+            buf, dump_fp = buf
+            with open(dump_fp, "rb") as dump_fp_fo:
+                g_cursor.copy_expert(buf, dump_fp_fo)
+        else:            
+            g_cursor.execute(buf)
+
+        print "# done execute cmd {}/{}: {}".format(i, n, buf)
         i = i + 1
-        print "# execute cmd {}/{}: {}".format(i, n, buf)
-        g_cursor.execute(buf)
         
     print("### all cmds exec success - COMMIT now...")    
     g_conn.commit()
@@ -980,14 +987,13 @@ def create(args, line):
                     first = False
                 colnames = colnames + '"' + col + '"'
                 
-            sqlstr = "copy \"{}\" ({}) from '{}' with (format csv, NULL '')".format(
+            sqlstr = "copy \"{}\" ({}) from STDIN with (format csv, NULL '')".format(
                 table_name,
-                colnames,
-                table_dump_fp
+                colnames               
             )
         
         dprint("START bulk insert sqlstr: "+sqlstr)
-        g_exec_buf.append(sqlstr)
+        g_exec_buf.append((sqlstr, table_dump_fp))
         # print("DONE bulk insert - nrows inserted: "+str(ret.rowcount))
     
     return True

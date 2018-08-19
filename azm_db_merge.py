@@ -68,17 +68,16 @@ def parse_cmd_args():
     parser.add_argument('--target_sqlite3_file', 
                         help="Target sqlite3 file (to create) for merge", required=False)
 
-    """ must be localhost only because now we're using BULK INSERT (or COPY) commands
-    parser.add_argument('--server_url',
-                        help="Target DBMS Server URL (domain or ip).",
-                        required=False, default="localhost")
-    """
 
     parser.add_argument('--docker_postgres_server_name',
-                        help="If azm_db_merge is running in a 'Docker' container and postgres+postgis is in another - use this to specify the server 'name'. NOTE: The azm file/folder path must be in a shared folder (with same the path) between this container and the postgres container as we're using the COPY command that requires access to a 'local' file on the postgres server.",
+                        help="Same as --pg_host option. If azm_db_merge is running in a 'Docker' container and postgres+postgis is in another - use this to specify the server 'name'. NOTE: The azm file/folder path must be in a shared folder (with same the path) between this container and the postgres container as we're using the COPY command that requires access to a 'local' file on the postgres server.",
                         required=False,
                         default=None)
 
+    parser.add_argument('--pg_host',
+                        help="Postgres host (default is localhost)",
+                        required=False,
+                        default='localhost')
     
     parser.add_argument('--server_user',
                         help="Target login: username.", required=True)
@@ -883,45 +882,25 @@ def get_sql_result(sqlstr, args):
     return result
 
 
-#################### Program START
+if __name__ == '__main__':
 
-print infostr
+    #################### Program START
 
-signal.signal(signal.SIGTERM, sigterm_handler)
+    print infostr
 
-args = parse_cmd_args()
-# must be localhost only because now we're using BULK INSERT (or COPY) commands
-args['server_url'] = "localhost"
+    signal.signal(signal.SIGTERM, sigterm_handler)
 
-if (args['unmerge']):
-    print "starting with --unmerge mode"
+    args = parse_cmd_args()
+    # must be localhost only because now we're using BULK INSERT (or COPY) commands
 
-print "checking --sqlite3_executable: ",args['sqlite3_executable']
-try:
-    cmd = [
-        args['sqlite3_executable'],
-        "--version"
-    ]
-    ret = call(cmd, shell=False)
-    if ret == 0:
-        print "sqlite3_executable working - OK"
-    else:
-        raise Exception("Secified (or default) --sqlite3_executable not working - ABORT")
-except Exception as e:
-    estr = str(e)
-    print "error - sqlite3 check exception estr: ",estr
-    if "The system cannot find the file specified" in estr:
-        print "windows run: can't call specified sqlite3_executable - trying use 'where' to find the default 'sqlite3' executable."
-        outstr = subprocess.check_output(
-            ["cmd.exe",
-             "/c",
-             "where",
-             "sqlite3"
-            ]
-        )
-        print "where returned: ",outstr.strip()
-        print "blindly using where return val as sqlite3 path..."
-        args['sqlite3_executable'] = outstr.strip()
+    if args['docker_postgres_server_name'] is not None:
+        args['pg_host'] = args['docker_postgres_server_name']
+
+    if (args['unmerge']):
+        print "starting with --unmerge mode"
+
+    print "checking --sqlite3_executable: ",args['sqlite3_executable']
+    try:
         cmd = [
             args['sqlite3_executable'],
             "--version"
@@ -931,159 +910,183 @@ except Exception as e:
             print "sqlite3_executable working - OK"
         else:
             raise Exception("Secified (or default) --sqlite3_executable not working - ABORT")
-    else:
-        args['sqlite3_executable'] = "./sqlite3"
-        cmd = [
-            args['sqlite3_executable'],
-            "--version"
-        ]
-        ret = call(cmd, shell=False)
-        if ret == 0:
-            print "sqlite3_executable working - OK"
+    except Exception as e:
+        estr = str(e)
+        print "error - sqlite3 check exception estr: ",estr
+        if "The system cannot find the file specified" in estr:
+            print "windows run: can't call specified sqlite3_executable - trying use 'where' to find the default 'sqlite3' executable."
+            outstr = subprocess.check_output(
+                ["cmd.exe",
+                 "/c",
+                 "where",
+                 "sqlite3"
+                ]
+            )
+            print "where returned: ",outstr.strip()
+            print "blindly using where return val as sqlite3 path..."
+            args['sqlite3_executable'] = outstr.strip()
+            cmd = [
+                args['sqlite3_executable'],
+                "--version"
+            ]
+            ret = call(cmd, shell=False)
+            if ret == 0:
+                print "sqlite3_executable working - OK"
+            else:
+                raise Exception("Secified (or default) --sqlite3_executable not working - ABORT")
         else:
-            raise Exception("Failed to find sqlite3 - please install sqlite3 and make sure it is in the path first. exception:"+str(e))
-    
+            args['sqlite3_executable'] = "./sqlite3"
+            cmd = [
+                args['sqlite3_executable'],
+                "--version"
+            ]
+            ret = call(cmd, shell=False)
+            if ret == 0:
+                print "sqlite3_executable working - OK"
+            else:
+                raise Exception("Failed to find sqlite3 - please install sqlite3 and make sure it is in the path first. exception:"+str(e))
 
-omit_tables = "spatial_ref_sys,geometry_columns,"+args['exclude_tables']
-omit_tables_array = omit_tables.split(",")
-args['omit_tables_array'] = omit_tables_array
 
-only_tables = "logs,"+args['only_tables']
-only_tables_array = only_tables.split(",")
-args['only_tables_array'] = only_tables_array
+    omit_tables = "spatial_ref_sys,geometry_columns,"+args['exclude_tables']
+    omit_tables_array = omit_tables.split(",")
+    args['omit_tables_array'] = omit_tables_array
 
-if only_tables == "logs,": # logs is default table - nothing added
-    args['only_tables_on'] = False
-else:
-    args['only_tables_on'] = True
+    only_tables = "logs,"+args['only_tables']
+    only_tables_array = only_tables.split(",")
+    args['only_tables_array'] = only_tables_array
 
-if not args['move_imported_azm_files_to_folder'] is None:
-    try:
-        os.mkdir(args['move_imported_azm_files_to_folder'])
-    except:
-        pass # ok - folder likely already exists...
-    if os.path.isdir(args['move_imported_azm_files_to_folder']):
-        pass
+    if only_tables == "logs,": # logs is default table - nothing added
+        args['only_tables_on'] = False
     else:
-        raise Exception("ABORT: Can't create or access folder specified by --move_imported_azm_files_to_folder: "+str(args['move_imported_azm_files_to_folder']))
-    
-mod_name = args['target_db_type']
-if args['debug']:
-    print "set_debug 1"
-    debug_helpers.set_debug(1)
-else:
-    print "set_debug 0"
-    debug_helpers.set_debug(0)
+        args['only_tables_on'] = True
 
-#if  mod_name in ['postgresql','mssql']:
-mod_name = 'gen_sql'
-mod_name = mod_name + "_handler"
-print "### get module: ", mod_name
-importlib.import_module(mod_name)
-mod = sys.modules[mod_name]
-#print "module dir: "+str(dir(mod))
+    if not args['move_imported_azm_files_to_folder'] is None:
+        try:
+            os.mkdir(args['move_imported_azm_files_to_folder'])
+        except:
+            pass # ok - folder likely already exists...
+        if os.path.isdir(args['move_imported_azm_files_to_folder']):
+            pass
+        else:
+            raise Exception("ABORT: Can't create or access folder specified by --move_imported_azm_files_to_folder: "+str(args['move_imported_azm_files_to_folder']))
 
-g_connect_function = getattr(mod, 'connect')
-g_check_if_already_merged_function = getattr(mod, 'check_if_already_merged')
-g_create_function = getattr(mod, 'create')
-g_commit_function = getattr(mod, 'commit')
-g_close_function = getattr(mod, 'close')
-
-if "," in args['azm_file']:
-    print "found comman in args['azm_file'] - split and use whichever is first present in the list"
-    csv = args['azm_file']
-    found = False
-    for fp in csv.split(","):
-        if os.path.isfile(fp):
-            args['azm_file'] = fp
-            print "using valid azm_file file path:", args['azm_file']
-            found = True
-            break
-    if not found:
-        raise Exception("Failed to find any valid existing azm file in supplied comma separated --azm_file option:"+str(args['azm_file']))   
-
-azm_file_is_folder = os.path.isdir(args['azm_file'])
-
-folder_daemon = not args['daemon_mode_rerun_on_folder_after_seconds'] is None
-folder_daemon_wait_seconds = 60
-if folder_daemon:
-    if not azm_file_is_folder:
-        raise Exception("ABORT: --daemon_mode_rerun_on_folder_after_seconds specified but --azm_file is not a folder.")
-    folder_daemon_wait_seconds = int(args['daemon_mode_rerun_on_folder_after_seconds'])
-    print "folder_daemon_wait_seconds: ",folder_daemon_wait_seconds
-    if folder_daemon_wait_seconds <= 0:
-        raise Exception("ABORT: --daemon_mode_rerun_on_folder_after_seconds option must be greater than 0.")
-ori_args = args
-
-if args['add_imei_id_to_all_tables']:
-    # get imei
-    imei = None
-    col = "IMEI"
-    table = "log_info"
-    where = "where {} != ''".format(col) # not null and not empty
-    sqlstr = "select {} from {} {} order by seqid desc limit 1;".format(col, table, where)
-    cmd = [args['sqlite3_executable'],args['file'],sqlstr]
-    print "call cmd:", cmd
-    imei = subprocess.check_output(cmd).strip()
-    args['imei'] = imei
-
-while(True):
-
-    process_start_time = time.time()
-
-    args = ori_args.copy() # args gets modified by each run - especially ['azm_file'] gets changed - so we want to use a copy of the original_args here (otherwise args would get modified and we won't be able to restore to the original for daemon_mon
-    
-    azm_files = []
-    # check if supplied 'azm_file' is a folder - then iterate over all azms in that folder
-    if azm_file_is_folder:
-        dir = args['azm_file']
-        print "supplied --azm_file: ",dir," is a directory - get a list of .azm files to process:"
-        matches = []
-        # recurse as below instead azm_files = glob.glob(os.path.join(dir,"*.azm"))
-        # http://stackoverflow.com/questions/2186525/use-a-glob-to-find-files-recursively-in-python
-        for root, dirnames, filenames in os.walk(dir):
-            for filename in fnmatch.filter(filenames, '*.azm'):
-                matches.append(os.path.join(root, filename))
-        azm_files = matches
+    mod_name = args['target_db_type']
+    if args['debug']:
+        print "set_debug 1"
+        debug_helpers.set_debug(1)
     else:
-        azm_files = [args['azm_file']]
+        print "set_debug 0"
+        debug_helpers.set_debug(0)
 
-    nazm = len(azm_files)
-    print "n_azm_files to process: {}".format(nazm)
-    print "list of azm files to process: "+str(azm_files)
-    iazm = 0
-    ifailed = 0
-    ret = -1
-    had_errors = False
+    #if  mod_name in ['postgresql','mssql']:
+    mod_name = 'gen_sql'
+    mod_name = mod_name + "_handler"
+    print "### get module: ", mod_name
+    importlib.import_module(mod_name)
+    mod = sys.modules[mod_name]
+    #print "module dir: "+str(dir(mod))
 
-    for azm in azm_files:
-        iazm = iazm + 1
-        args['azm_file'] = azm
-        print "## START process azm {}/{}: '{}'".format(iazm, nazm, azm)
-        try: 
-            ret = process_azm_file(args)
-            if (ret != 0):
-                raise Exception("ABORT: process_azm_file failed with ret code: "+str(ret))        
-            print "## DONE process azm {}/{}: '{}' retcode {}".format(iazm, nazm, azm, ret)        
-        except Exception as e:
-            ifailed = ifailed + 1
-            had_errors = True
-            type_, value_, traceback_ = sys.exc_info()
-            exstr = traceback.format_exception(type_, value_, traceback_)
-            print "## FAILED: process azm {} failed with below exception:\n(start of exception)\n{}\n{}(end of exception)".format(azm,str(e),exstr)
-            if (args['folder_mode_stop_on_first_failure']):
-                print "--folder_mode_stop_on_first_failure specified - exit now."
-                exit(-9)
+    g_connect_function = getattr(mod, 'connect')
+    g_check_if_already_merged_function = getattr(mod, 'check_if_already_merged')
+    g_create_function = getattr(mod, 'create')
+    g_commit_function = getattr(mod, 'commit')
+    g_close_function = getattr(mod, 'close')
 
-    if (had_errors == False):
-        print "SUCCESS - operation completed successfully for all azm files (tatal: %d) - in %.03f seconds." % (iazm,  time.time() - process_start_time)
-    else:
-        print "COMPLETED WITH ERRORS - operation completed but had encountered errors (tatal: %d, failed: %d) - in %.03f seconds - (use --folder_mode_stop_on_first_failure to stop on first failed azm file)." % (iazm,ifailed, time.time() - process_start_time)
-    if not folder_daemon:
-        print "exit code:",str(ret)
-        exit(ret)
-    else:
-        print "*** folder_daemon mode: wait seconds: ",folder_daemon_wait_seconds
-        for i in range(0,folder_daemon_wait_seconds):
-            print "** folder_daemon mode: waiting ",i,"/",folder_daemon_wait_seconds," seconds"
-            time.sleep(1)
+    if "," in args['azm_file']:
+        print "found comman in args['azm_file'] - split and use whichever is first present in the list"
+        csv = args['azm_file']
+        found = False
+        for fp in csv.split(","):
+            if os.path.isfile(fp):
+                args['azm_file'] = fp
+                print "using valid azm_file file path:", args['azm_file']
+                found = True
+                break
+        if not found:
+            raise Exception("Failed to find any valid existing azm file in supplied comma separated --azm_file option:"+str(args['azm_file']))   
+
+    azm_file_is_folder = os.path.isdir(args['azm_file'])
+
+    folder_daemon = not args['daemon_mode_rerun_on_folder_after_seconds'] is None
+    folder_daemon_wait_seconds = 60
+    if folder_daemon:
+        if not azm_file_is_folder:
+            raise Exception("ABORT: --daemon_mode_rerun_on_folder_after_seconds specified but --azm_file is not a folder.")
+        folder_daemon_wait_seconds = int(args['daemon_mode_rerun_on_folder_after_seconds'])
+        print "folder_daemon_wait_seconds: ",folder_daemon_wait_seconds
+        if folder_daemon_wait_seconds <= 0:
+            raise Exception("ABORT: --daemon_mode_rerun_on_folder_after_seconds option must be greater than 0.")
+    ori_args = args
+
+    if args['add_imei_id_to_all_tables']:
+        # get imei
+        imei = None
+        col = "IMEI"
+        table = "log_info"
+        where = "where {} != ''".format(col) # not null and not empty
+        sqlstr = "select {} from {} {} order by seqid desc limit 1;".format(col, table, where)
+        cmd = [args['sqlite3_executable'],args['file'],sqlstr]
+        print "call cmd:", cmd
+        imei = subprocess.check_output(cmd).strip()
+        args['imei'] = imei
+
+    while(True):
+
+        process_start_time = time.time()
+
+        args = ori_args.copy() # args gets modified by each run - especially ['azm_file'] gets changed - so we want to use a copy of the original_args here (otherwise args would get modified and we won't be able to restore to the original for daemon_mon
+
+        azm_files = []
+        # check if supplied 'azm_file' is a folder - then iterate over all azms in that folder
+        if azm_file_is_folder:
+            dir = args['azm_file']
+            print "supplied --azm_file: ",dir," is a directory - get a list of .azm files to process:"
+            matches = []
+            # recurse as below instead azm_files = glob.glob(os.path.join(dir,"*.azm"))
+            # http://stackoverflow.com/questions/2186525/use-a-glob-to-find-files-recursively-in-python
+            for root, dirnames, filenames in os.walk(dir):
+                for filename in fnmatch.filter(filenames, '*.azm'):
+                    matches.append(os.path.join(root, filename))
+            azm_files = matches
+        else:
+            azm_files = [args['azm_file']]
+
+        nazm = len(azm_files)
+        print "n_azm_files to process: {}".format(nazm)
+        print "list of azm files to process: "+str(azm_files)
+        iazm = 0
+        ifailed = 0
+        ret = -1
+        had_errors = False
+
+        for azm in azm_files:
+            iazm = iazm + 1
+            args['azm_file'] = azm
+            print "## START process azm {}/{}: '{}'".format(iazm, nazm, azm)
+            try: 
+                ret = process_azm_file(args)
+                if (ret != 0):
+                    raise Exception("ABORT: process_azm_file failed with ret code: "+str(ret))        
+                print "## DONE process azm {}/{}: '{}' retcode {}".format(iazm, nazm, azm, ret)        
+            except Exception as e:
+                ifailed = ifailed + 1
+                had_errors = True
+                type_, value_, traceback_ = sys.exc_info()
+                exstr = traceback.format_exception(type_, value_, traceback_)
+                print "## FAILED: process azm {} failed with below exception:\n(start of exception)\n{}\n{}(end of exception)".format(azm,str(e),exstr)
+                if (args['folder_mode_stop_on_first_failure']):
+                    print "--folder_mode_stop_on_first_failure specified - exit now."
+                    exit(-9)
+
+        if (had_errors == False):
+            print "SUCCESS - operation completed successfully for all azm files (tatal: %d) - in %.03f seconds." % (iazm,  time.time() - process_start_time)
+        else:
+            print "COMPLETED WITH ERRORS - operation completed but had encountered errors (tatal: %d, failed: %d) - in %.03f seconds - (use --folder_mode_stop_on_first_failure to stop on first failed azm file)." % (iazm,ifailed, time.time() - process_start_time)
+        if not folder_daemon:
+            print "exit code:",str(ret)
+            exit(ret)
+        else:
+            print "*** folder_daemon mode: wait seconds: ",folder_daemon_wait_seconds
+            for i in range(0,folder_daemon_wait_seconds):
+                print "** folder_daemon mode: waiting ",i,"/",folder_daemon_wait_seconds," seconds"
+                time.sleep(1)

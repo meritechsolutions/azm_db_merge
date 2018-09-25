@@ -130,7 +130,7 @@ def connect(args):
             print "pg mode create pg_schema:", args["pg_schema"]
             try:
                 with g_conn as c:
-                    ret = g_cursor.execute("create schema "+args["pg_schema"])
+                    ret = g_cursor.execute("create schema if not exists "+args["pg_schema"])
                     c.commit()
                     print "success: create schema "+args["pg_schema"]+ " success"
                     
@@ -189,7 +189,7 @@ def try_cre_postgis(schema="public"):
     global g_cursor
     try:
         with g_conn as c:
-            sql = "CREATE EXTENSION postgis SCHEMA {}".format(schema)
+            sql = "CREATE EXTENSION if not exists postgis SCHEMA {}".format(schema)
             print "try: CREATE EXTENSION postgis on schema:", schema, "sql:", sql
             ret = g_cursor.execute(sql)
             c.commit()
@@ -798,7 +798,12 @@ def create(args, line):
                 pre = " hex("
                 post = ")"
                 if col_name == "geom":
-                    geom_col_index = i                
+                    geom_col_index = i
+
+            ### custom limit bsic len in case matched wrongly entered bsic to long str but pg takes max 5 char len for bsic
+            if col_name == "gsm_bsic":
+                col_name = "substr(gsm_bsic, 0, 6) as gsm_bsic"  # limit to 5 char len (6 is last index excluding)
+            
             col_select = col_select + pre + col_name + post            
             i = i + 1
         

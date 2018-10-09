@@ -730,6 +730,7 @@ def process_azm_file(args):
             "select log_end_time from logs limit 1",
             args
         )
+        #print "args['log_end_time_str']:", args['log_end_time_str']
 
         
         args['log_start_time'] = get_sql_result(
@@ -745,7 +746,15 @@ def process_azm_file(args):
             "select strftime('%s', log_end_time) from logs limit 1",
             args
         )
-        print "parse log_end_time:", args['log_start_time']
+
+        # some rare cases older apks log_end_time somehow didnt get into db
+        if not args['log_end_time']:
+            args['log_end_time'] = get_sql_result(
+                "select strftime('%s', max(time)) from android_info_1sec",
+                args
+            )            
+        
+        print "parse log_end_time:", args['log_end_time']
         args['log_end_time'] = datetime.fromtimestamp(long(args['log_end_time']))
         print "args['log_end_time']:", args['log_end_time']
         print "args['log_end_time_str']:", args['log_end_time_str']

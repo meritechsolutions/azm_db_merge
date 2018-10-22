@@ -126,51 +126,9 @@ Below we detail a bit about the different connection setup instead of the 'spati
 - You can also use QGIS to directly open the [SQLite](https://sqlite.org/) 'azqdata.db' inside each ".azm" file (without using azm_db_merge - and also query it with any SQLite browser) or the merged sqlite3 database files you merged with azm_db_merge.
 - Simply choose 'SpatiaLite' in QGIS's Browser Panel and locate the extracted 'azqdata.db' file you extracted from the azm (simply rename the .azm to .zip and unzip) and the list of populated tables would show up similar to screenshots PostgreSQL QGIS access above.
 
-### Data Access via SQL queries
+### Data Access via SQL queries and examples
 
-After going through the document linked in the start of the "How to access the imported data" section above (https://docs.google.com/document/d/18GZAgcs3jRFdWqfvAqmQicvYlXRk6D0WktqWmd5iwwo/edit#heading=h.6vk8shbpst4) please go through some notable excerpts and additional notes listed below:
-- The data is structured into "tables" - to know which parameter is in which table - simply open the link below and search for your parameter in the "var_name" column, its table is in the "db_table" column:
-https://docs.google.com/spreadsheets/d/1ddl-g_qyoMYLF8PMkjrYPrpXusdinTZxsWLQOzJ6xu8/edit?usp=sharing
-- The Layer-3 messages and other signalling like 'SIP' are in their own 'signalling' table.
-- The events are in the "events" table.
-- The list of all imported logs are in the "logs" table. (the individual sqlit3 db inside each azm also has this table - with normally only one row because it is from one azm log). This table would tell you the log's original ".azm" filename, the log start_time, end_time, app version, tag name (log_tag) etc.
-- The table structure of the sqlite3 database and the "merged" target database is essentially the same.
-- All tables have the "log_hash" column - this tells you "from which log did this row in this table come from" - you can use it to query the "logs" table for the row that has the same "log_hash" to get further info about the log.
-- All tables have the "time" column - this is the timestamp of that row.
-- All tables have the "geom" column - this is the "geometry POINT" data blob - simply the Latitude (Y) and Longitude (X) combined in a form that can be queried "spatially" and also direcly usable/plottable by tools like QGIS.
-- All tables have the "posid" column (position id) - this coulumn can be used together with the "log_hash" to do "joins" of your target table with the "location" table to get the "positioning_lat" and "positioning_lon" of each row (in case you prefer not to use or not to import the spatial "geom" using azm_db_merge.py's option: --import_geom_column_in_location_table_only).
-- All tables have the "seqid" column (sequence id) - this can be used to easily compare between rows regarding which came before/after/between especially in (rare) cases where a few rows have the same timestamp.
-- To know the 'span' (start time/seqid, end time/seqid) of a particular script test item (or "session") - you can use the rows of the tables whose names start with 'statement_sum_' - these tables would contain the 'time' and 'seqid' of all the main 'events' that can come from these script test item. For example the table named 'statement_sum_ftp_download' would have the rows of each 'session' that the ftp_download script ran so you can use it to query things like 'lte_l1_dl_throughput_all_carriers' between its column of 'event_20704_ftp_download_first_byte_received_time' and 'event_20705_ftp_download_last_byte_received_time' (or seqid).
-
-Now, you can use you preferred SQL browser or programming language to do some queries on the data as described above. Below are some simple examples:
-
-#### SQL Query simple examples
-
-*Note: Below are very simple easy-to-write examples tested on PostgreSQL via 'pgAdmin III' - not considering efficiency or any advanced SQL techniques.*
-
-Let's say we want to get the average of the "LTE RSRP" param (in dBm) - first we need to know which table it resides in, so we open:
-https://docs.google.com/spreadsheets/d/1ddl-g_qyoMYLF8PMkjrYPrpXusdinTZxsWLQOzJ6xu8/edit?usp=sharing
-And we search for "rsrp", we can see the row with "var_name" (parameter name) 'lte_inst_rsrp' and its "db_table" column shows that it is in the table 'lte_cell_meas'. Having understood about the "index" we now know that the actual column name would need to have a '_1' suffix if we want to show the PCC (first index) measurements for RSRP - so we can now simply query the database with the SQL below:
-<pre>select avg(lte_inst_rsrp_1) from lte_cell_meas</pre>
-And we'd get our result shown almost instantly.
-
-Then, let's say we want to know the 'max' RSRP - we can do the following query:
-<pre>select max(lte_inst_rsrp_1) from lte_cell_meas</pre>
-
-Suppose we got "-50.6875" as the max RSRP, then, let's say we want to know 'from which log did this 'max' RSRP come from?' - we can then simply query below to get the full row it came from:
-<pre>select * from lte_cell_meas where lte_inst_rsrp_1 = -50.6875</pre>
-
-We'd get a row (or a few) then we can see the 'log_hash' of the log. In our case the 'log_hash' is '264179501379092216' - so now we can simply query below to get the log's original file name (log_ori_file_name column), tag (log_tag column) of the log that has this max RSRP:
-<pre>select * from logs where log_hash = 264179501379092216</pre>
-
-We now found the log that has is the champion of RSRP! Congratulations!
-
-Some more examples can be checked from the (very simple) example R programming language example project - although this project uses the old/obsolete table and column names and queries the unmerged sqlite3 database, it can still provide an idea of how to find/get and process some radio parameters and Layer-3 messages in the database - it produces some charts below:
-- RSRP plot on map
-- RSRP distribution histogram
-- A histogram showing the distribution of 'e1' WCDMA L3 RRC MeasurementReport's measurement events (e1a, e1b, e1c, etc)
-- You can view the example plots and get the source code at:
-https://docs.google.com/document/d/18GZAgcs3jRFdWqfvAqmQicvYlXRk6D0WktqWmd5iwwo/edit#heading=h.nnww3d7qok2v
+After going through the document linked in the start of the "How to access the imported data" section above (https://docs.google.com/document/d/18GZAgcs3jRFdWqfvAqmQicvYlXRk6D0WktqWmd5iwwo/edit#heading=h.6vk8shbpst4) please go through the most up-to-date section on this at: https://docs.google.com/document/d/18GZAgcs3jRFdWqfvAqmQicvYlXRk6D0WktqWmd5iwwo/edit#heading=h.melvpkj3en4f
 
 
 Special Thanks

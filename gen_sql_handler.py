@@ -981,14 +981,25 @@ def create(args, line):
                 if first:
                     first = False
                 colnames = colnames + '"' + col + '"'
-                
-            sqlstr = "copy \"{}\" ({}) from STDIN with (format csv, NULL '')".format(
-                table_name,
-                colnames               
-            )
+
+            if args['pg_copy_direct_file_access']:
+                sqlstr = "copy \"{}\" ({}) from '{}' with (format csv, NULL '')".format(
+                    table_name,
+                    colnames,
+                    table_dump_fp
+                )
+            else:
+                sqlstr = "copy \"{}\" ({}) from STDIN with (format csv, NULL '')".format(
+                    table_name,
+                    colnames               
+                )
         
         dprint("START bulk insert sqlstr: "+sqlstr)
-        g_exec_buf.append((sqlstr, table_dump_fp))
+        if args['pg_copy_direct_file_access']:
+            g_exec_buf.append(sqlstr)
+        else:
+            g_exec_buf.append((sqlstr, table_dump_fp))
+            
         # print("DONE bulk insert - nrows inserted: "+str(ret.rowcount))
     
     return True

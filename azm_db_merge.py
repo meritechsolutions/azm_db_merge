@@ -282,7 +282,7 @@ def handle_sql3_dump_line(args, line):
         g_create_buf += line.strip()
         if line.strip().endswith(");"):
             line = g_create_buf
-            print "multi line create END\ng_is_in_create final line:", line
+            print "multi line create END"  # \ng_is_in_create final line:", line
         else:
             return True
         

@@ -554,7 +554,8 @@ def create(args, line):
     local_column_names = []    
     for lsp in ls:
         splitted = lsp.split('"')
-        dprint("splitted: "+str(splitted))
+        if len(splitted) < 3:
+            raise Exception("failed to get col_name/col_type for lsp: {}".format(lsp))
         col_name = splitted[1]
         col_type = splitted[2].strip()                
 

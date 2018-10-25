@@ -819,7 +819,7 @@ def create(args, line):
                 '-separator', azm_db_constants.BULK_INSERT_COL_SEPARATOR_VALUE,
                 '-newline', azm_db_constants.BULK_INSERT_LINE_SEPARATOR_VALUE,
                 '.out ' + '"' +table_dump_fp.replace("\\","\\\\") + '"', # double backslash because it needs to go inside sqlite3 cmd parsing again      
-                'select '+col_select+' from '+ table_name
+                'select '+col_select+' from '+ table_name + ' where time is not null'
                 ], shell = False
             )
 
@@ -832,7 +832,7 @@ def create(args, line):
                 '-separator',',',
                 '-newline', '\n',
                 '.out ' + '"' +table_dump_fp.replace("\\","\\\\") + '"', # double backslash because it needs to go inside sqlite3 cmd parsing again
-                'select '+col_select+' from '+ table_name
+                'select '+col_select+' from '+ table_name + ' where time is not null'
                 ]
             dprint("dump_cmd:", dump_cmd)
             ret = call(

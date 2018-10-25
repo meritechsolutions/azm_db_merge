@@ -29,8 +29,6 @@ g_unmerge_logs_row = None # would be set in --unmerge mode
 
 g_cursor = None
 g_conn = None
-g_autocommit_cursor = None
-g_autocommit_conn = None
 g_exec_buf = []
 
 """
@@ -50,7 +48,7 @@ g_dir_processing_azm = None
 def connect(args):
     global g_bulk_insert_mode
     global g_dir_processing_azm
-    global g_cursor, g_conn, g_autocommit_conn, g_autocommit_cursor
+    global g_cursor, g_conn
     global g_exec_buf
     global g_is_ms, g_is_postgre
 
@@ -114,14 +112,7 @@ def connect(args):
             connect_str = "host="+args['pg_host']+" "+connect_str
         #unsafe as users might see in logs print "using connect_str: "+connect_str
         args['connect_str'] = connect_str
-
-        # this connection has transactions (on by defualt in psycopg2) for atomicity
-        g_conn = psycopg2.connect(connect_str) 
-
-        # this connection is autocommit - no transactions - create schemas/partitions/tables should have immediate effect
-        g_autocommit_conn = psycopg2.connect(connect_str) 
-        g_autocommit_conn.autocommit = True  
-        
+        g_conn = psycopg2.connect(connect_str)
     if (g_conn is None):
         print "psycopg2.connect returned None"
         return False
@@ -129,7 +120,6 @@ def connect(args):
     print "connected"
     
     g_cursor = g_conn.cursor()
-    g_autocommit_cursor = g_autocommit_conn.cursor()
 
     # post connect steps for each dbms
     if g_is_postgre and not args['unmerge']:
@@ -138,9 +128,12 @@ def connect(args):
         
        if args["pg_schema"] != "public":
             print "pg mode create pg_schema:", args["pg_schema"]
-            try:                
-                g_autocommit_cursor.execute("create schema if not exists "+args["pg_schema"])
-                print "success: create schema "+args["pg_schema"]+ " success"                    
+            try:
+                with g_conn as c:
+                    ret = g_cursor.execute("create schema if not exists "+args["pg_schema"])
+                    c.commit()
+                    print "success: create schema "+args["pg_schema"]+ " success"
+                    
             except Exception as e:
                 estr = str(e)
                 if 'already exists' in estr:
@@ -192,13 +185,15 @@ def connect(args):
 
 
 def try_cre_postgis(schema="public"):
-    global g_autocommit_cursor
+    global g_conn
+    global g_cursor
     try:
-        
-        sql = "CREATE EXTENSION if not exists postgis SCHEMA {}".format(schema)
-        print "try: CREATE EXTENSION postgis on schema:", schema, "sql:", sql
-        g_autocommit_cursor.execute(sql)            
-        print "success: CREATE EXTENSION postgis"
+        with g_conn as c:
+            sql = "CREATE EXTENSION if not exists postgis SCHEMA {}".format(schema)
+            print "try: CREATE EXTENSION postgis on schema:", schema, "sql:", sql
+            ret = g_cursor.execute(sql)
+            c.commit()
+            print "success: CREATE EXTENSION postgis"
     except Exception as e:
         estr = str(e)
         if 'already exists' in estr:
@@ -211,13 +206,12 @@ def try_cre_postgis(schema="public"):
 
 def check_if_already_merged(args, log_hash):    
     global g_unmerge_logs_row
-    global g_autocommit_cursor
+    global g_cursor
     global g_exec_buf
     global g_is_ms, g_is_postgre
 
     if args["pg_schema"] != "public":
         g_cursor.execute("SET search_path = '{}','public';".format(args["pg_schema"]))
-        g_autocommit_cursor.execute("SET search_path = '{}','public';".format(args["pg_schema"]))
     
     try:
         print "checking if this log_hash has already been imported/merged: "+log_hash
@@ -227,9 +221,12 @@ def check_if_already_merged(args, log_hash):
         print("check log cmd: "+sqlstr)
 
         row = None
-        
-        g_autocommit_cursor.execute(sqlstr, [log_hash])
-        row = g_autocommit_cursor.fetchone()
+
+        # use with for auto rollback() on g_conn on exception - otherwise we cant use the cursor again - would fail as: current transaction is aborted, commands ignored until end of transaction block
+        ret = None
+        with g_conn as c:
+            ret = g_cursor.execute(sqlstr, [log_hash])
+            row = g_cursor.fetchone()
 
         print("after cmd check if exists row:", row)
 
@@ -301,7 +298,7 @@ def check_if_already_merged(args, log_hash):
         
 
 def close(args):
-    global g_cursor, g_conn, g_autocommit_conn, g_autocommit_cursor
+    global g_cursor, g_conn
     global g_exec_buf    
     global g_prev_create_statement_column_names
     global g_prev_create_statement_table_name
@@ -322,29 +319,14 @@ def close(args):
             g_cursor.close()
             g_cursor = None        
         except Exception as e:
-            print "WARNING: cursor0 close failed: "+str(e)
+            print "warning: mssql cursor close failed: "+str(e)
         
     if g_conn is not None:    
         try:
             g_conn.close()
             g_conn = None
         except Exception as e:
-            print "WARNING: conn0 close failed: "+str(e)
-
-
-    if g_autocommit_cursor is not None:
-        try:
-            g_autocommit_cursor.close()
-            g_autocommit_cursor = None
-        except Exception as e:
-            print "WARNING: conn cursor1 failed: "+str(e)
-            
-    if g_autocommit_conn is not None:    
-        try:
-            g_autocommit_conn.close()
-            g_autocommit_conn = None
-        except Exception as e:
-            print "WARNING: conn close1 failed: "+str(e)
+            print "warning: mssql conn close failed: "+str(e)
             
     return True
 
@@ -507,7 +489,7 @@ def find_and_conv_spatialite_blob_to_wkb(csv_line):
 
 
 def create(args, line):
-    global g_autocommit_cursor
+    global g_cursor, g_conn
     global g_prev_create_statement_table_name
     global g_prev_create_statement_column_names
     global g_exec_buf
@@ -517,7 +499,7 @@ def create(args, line):
     g_prev_create_statement_column_names = None
 
     if args["pg_schema"] != "public":
-        g_autocommit_cursor.execute("SET search_path = '{}','public';".format(args["pg_schema"]))
+        g_cursor.execute("SET search_path = '{}','public';".format(args["pg_schema"]))
 
     line_adj = sql_adj_line(line)
     table_name = get_table_name(line_adj)
@@ -609,10 +591,18 @@ def create(args, line):
                     # ok - partition this table
                     sqlstr = sqlstr.replace(";","") +" PARTITION BY RANGE (time);"
                     try:
-                        
-                        c_table_per_month_sql = "create schema if not exists {};".format(schema_per_month_name)
-                        ret = g_autocommit_cursor.execute(c_table_per_month_sql)                            
-                        #print "success: create per_month ["+c_table_per_month_sql+"] success"
+                        with g_conn as c:
+                            g_cursor.execute("SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{}';".format(schema_per_month_name))
+                            if bool(g_cursor.rowcount):
+                                print "schema_per_month_name already exists:", schema_per_month_name
+                                pass
+                            else:
+                                print "cre schema now because: NOT schema_per_month_name already exists:", schema_per_month_name
+                                with g_conn as c:
+                                    c_table_per_month_sql = "create schema {};".format(schema_per_month_name)
+                                    ret = g_cursor.execute(c_table_per_month_sql)
+                                    g_conn.commit()
+                                    print "success: create per_month ["+c_table_per_month_sql+"] success"
                     except:
                         type_, value_, traceback_ = sys.exc_info()
                         exstr = str(traceback.format_exception(type_, value_, traceback_))
@@ -629,8 +619,19 @@ def create(args, line):
             dprint("create sqlstr mod mssql geom: "+sqlstr)
             is_contains_geom_col = True            
 
+        if g_is_postgre:
+            with g_conn as c:
+                g_cursor.execute("select * from information_schema.tables where table_schema=%s and table_name=%s", (args["pg_schema"],table_name,))
+                if bool(g_cursor.rowcount):
+                    print "omit already existing table - raise exception to check columns instead"
+                    raise Exception("table {} already exists - no need to create".format(table_name))
+        
         ret = None
-        ret = g_autocommit_cursor.execute(sqlstr)
+        # use with for auto rollback() on g_conn on expected fails like already exists
+        with g_conn as c:
+            ret = g_cursor.execute(sqlstr)
+        # commit now otherwise COPY might not see partitions
+        g_conn.commit()
         dprint("create execute ret: "+str(ret))
         
         """ if control reaches here then the create is successful
@@ -732,24 +733,34 @@ def create(args, line):
                 for log_hash_datetime in months_pt_check_list:
                 
                     log_hash_ym_str = log_hash_datetime.strftime('%Y_%m')
-                    #print  "log_hash_datetime:", log_hash_datetime
+                    print  "log_hash_datetime:", log_hash_datetime
 
                     ntn = "logs_{}".format(log_hash_ym_str) # simpler name because we got cases where schema's table name got truncated: activate_dedicated_eps_bearer_context_request_params_3170932708
                     pltn = "{}.{}".format(schema_per_month_name, ntn)
+                    per_month_table_already_exists = False
+                    with g_conn as c:
+                        check_sql = "select * from information_schema.tables where table_schema='{}' and table_name='{}'".format(schema_per_month_name, ntn)
+                        print "check_sql:", check_sql
+                        g_cursor.execute(check_sql)
+                        if bool(g_cursor.rowcount):
+                            per_month_table_already_exists = True
 
-                    #print "create per_month table:", pltn
-                    cre_target_pt_sql = "CREATE TABLE if not exists {} PARTITION OF {} FOR VALUES from ('{}-1') to ('{}-1');".format(
-                        pltn,
-                        table_name,
-                        log_hash_datetime.strftime("%Y-%m"),
-                        (log_hash_datetime+relativedelta(months=+1)).strftime("%Y-%m")
-                    )
-                    if args['pg10_partition_index_log_hash']:
-                        cre_index_for_pt_sql = "CREATE INDEX if not exists log_hash_idx ON {} (log_hash);".format(pltn)
-                        cre_target_pt_sql += " "+cre_index_for_pt_sql
-
-                    #print("cre_target_pt_sql:", cre_target_pt_sql)                        
-                    exec_creatept_or_alter_handle_concurrency(cre_target_pt_sql, allow_exstr_list=[" already exists"])
+                    if per_month_table_already_exists:
+                        print "omit create already existing per_month table:", pltn
+                    else:
+                        print "NOT omit create already existing per_month table:", pltn
+                        cre_target_pt_sql = "CREATE TABLE {} PARTITION OF {} FOR VALUES from ('{}-1') to ('{}-1');".format(
+                            pltn,
+                            table_name,
+                            log_hash_datetime.strftime("%Y-%m"),
+                            (log_hash_datetime+relativedelta(months=+1)).strftime("%Y-%m")
+                        )
+                        if args['pg10_partition_index_log_hash']:
+                            cre_index_for_pt_sql = "CREATE INDEX ON {} (log_hash);".format(pltn)
+                            cre_target_pt_sql += " "+cre_index_for_pt_sql
+                            
+                        print("cre_target_pt_sql:", cre_target_pt_sql)                        
+                        exec_creatept_or_alter_handle_concurrency(cre_target_pt_sql, allow_exstr_list=[" already exists"])
 
         ###### let sqlite3 dump contents of table into file
         
@@ -767,7 +778,7 @@ def create(args, line):
 
         # get col list, and hex(col) for blob coulumns
 
-        #geom_col_index = -1
+        geom_col_index = -1
 
         i = 0
         col_select = ""
@@ -787,8 +798,7 @@ def create(args, line):
                 pre = " hex("
                 post = ")"
                 if col_name == "geom":
-                    pass
-                    # not used now: geom_col_index = i 
+                    geom_col_index = i
 
             ### custom limit bsic len in case matched wrongly entered bsic to long str but pg takes max 5 char len for bsic
             if col_name == "gsm_bsic":
@@ -837,7 +847,7 @@ def create(args, line):
         for ci in range(len(local_columns)):
             if ci != 0:
                 all_cols_null_line += ","
-        #print "all_cols_null_line:", all_cols_null_line
+        print "all_cols_null_line:", all_cols_null_line
 
         pd_csvadj_success = False
 
@@ -891,7 +901,7 @@ def create(args, line):
             
             
         if (os.stat(table_dump_fp).st_size == 0):
-            #print "this table is empty..."
+            print "this table is empty..."
             return True
         
         # if control reaches here then the table is not empty
@@ -1044,10 +1054,8 @@ def get_col_names(cols):
 
 
 def get_remote_columns(args, table_name):
-    global g_autocommit_cursor
+    global g_cursor
     global g_is_ms, g_is_postgre
-
-    # use g_autocommit_cursor as it is an autocommit conn so each query we run will not be a transaction (reduce locking)
     
     dprint("table_name: "+table_name)
     sqlstr = ""
@@ -1057,12 +1065,9 @@ def get_remote_columns(args, table_name):
         sqlstr = "select * from \"{}\" where false".format(table_name)
         
     dprint("check table columns sqlstr: "+sqlstr)
-    ret = None
-
-    
-    g_autocommit_cursor.execute(sqlstr)
+    ret = g_cursor.execute(sqlstr)
     dprint("query execute ret: "+str(ret))
-    rows = g_autocommit_cursor.fetchall()
+    rows = g_cursor.fetchall()
 
     '''
     Now get remote column list for this table...
@@ -1071,11 +1076,11 @@ def get_remote_columns(args, table_name):
     remote_columns = []
 
     if g_is_postgre:
-        colnames = [desc[0] for desc in g_autocommit_cursor.description]
+        colnames = [desc[0] for desc in g_cursor.description]
         for col in colnames:
             remote_columns.append([col,""])
-            
-    """ ms not supported anymore
+        return remote_columns
+
     if g_is_ms:
         # MS SQL
         for row in rows:
@@ -1097,14 +1102,13 @@ def get_remote_columns(args, table_name):
             remote_columns.append([col_name,col_type])
 
         return remote_columns
-    """
-    return remote_columns
 
 
 def exec_creatept_or_alter_handle_concurrency(sqlstr, raise_exception_if_fail=True, allow_exstr_list=[]):
-    global g_autocommit_cursor
+    global g_conn
+    global g_cursor
 
-    #print("exec_creatept_or_alter_handle_concurrency START sqlstr: {}".format(sqlstr))
+    print("exec_creatept_or_alter_handle_concurrency START sqlstr: {}".format(sqlstr))
     
     ret = False
     prev_exstr = ""
@@ -1114,9 +1118,15 @@ def exec_creatept_or_alter_handle_concurrency(sqlstr, raise_exception_if_fail=Tr
     for retry in range(exec_creatept_or_alter_handle_concurrency_max_retries):
         try:
             
-            #print("exec_creatept_or_alter_handle_concurrency retry {} sqlstr: {}".format(retry, sqlstr))
-            g_autocommit_cursor.execute(sqlstr)
-            #print("exec_creatept_or_alter_handle_concurrency retry {} sqlstr: {} execret: {}".format(retry, sqlstr, execret))
+            # use with for auto rollback() on g_conn on expected fails like already exists
+            with g_conn as con:
+                print("exec_creatept_or_alter_handle_concurrency retry {} sqlstr: {}".format(retry, sqlstr))
+                execret = g_cursor.execute(sqlstr)
+                print("exec_creatept_or_alter_handle_concurrency retry {} sqlstr: {} execret: {}".format(retry, sqlstr, execret))
+
+                # commit now otherwise upcoming COPY commands might not see partitions
+                con.commit()
+                print("exec_creatept_or_alter_handle_concurrency commit done")
             ret = True
             break
         except:
@@ -1136,7 +1146,7 @@ def exec_creatept_or_alter_handle_concurrency(sqlstr, raise_exception_if_fail=Tr
             sleep_dur = random.random() + 0.5
             time.sleep(sleep_dur)
             
-    #print("exec_creatept_or_alter_handle_concurrency DONE sqlstr: {} - ret {}".format(sqlstr, ret))
+    print("exec_creatept_or_alter_handle_concurrency DONE sqlstr: {} - ret {}".format(sqlstr, ret))
 
     if ret is False and raise_exception_if_fail:
         raise Exception("exec_creatept_or_alter_handle_concurrency FAILED after max retries: {} prev_exstr: {}".format(exec_creatept_or_alter_handle_concurrency_max_retries, prev_exstr))

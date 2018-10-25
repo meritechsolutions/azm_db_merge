@@ -325,18 +325,18 @@ def handle_sql3_dump_line(args, line):
         table_name = line.split(" ")[2].replace("\"", "")
 
         if not args['unmerge']:
-            #print "first delete all rows with wrong modem timestamp before 48h of log_start_time and log_end_time for this table:", table_name
+            print "firt delete all rows with wrong modem timestamp before 48h of log_start_time and log_end_time for this table:", table_name
             
             sqlstr = "delete from {} where time < '{}' or time > '{}';".format(table_name, args['log_data_min_time'], args['log_data_max_time'])
             cmd = [args['sqlite3_executable'],args['file'],sqlstr]
-            #print "call cmd:", cmd
+            print "call cmd:", cmd
             try:
                 outstr = subprocess.check_output(cmd)
-                #print "delete from ret outstr:", outstr
+                print "delete from ret outstr:", outstr
             except Exception as se:
                 print "WARNING: delete pre y2k rows from table failed exception:", se
 
-        #print("\nprocessing: create/alter/insert for table_name: "+table_name)
+        print("\nprocessing: create/alter/insert for table_name: "+table_name)
         
         # check if create is required for this table (omit if empty)
         create = True        
@@ -347,7 +347,7 @@ def handle_sql3_dump_line(args, line):
             print("checking if table is empty ...")
             sqlstr = "SELECT 1 FROM {} LIMIT 1".format(table_name)
             cmd = [args['sqlite3_executable'],args['file'],sqlstr]
-            #print "call cmd:", cmd
+            print "call cmd:", cmd
             outstr = subprocess.check_output(cmd)
             # print "check has_rows out: "+outstr
             has_rows = (outstr.strip() == "1")
@@ -360,7 +360,7 @@ def handle_sql3_dump_line(args, line):
                 create = False            
         
         if create:
-            #print "processing create at handler module..." # always create - flag override                
+            print "processing create at handler module..." # always create - flag override                
             handle_ret = g_create_function(args, line)
         
         
@@ -477,7 +477,7 @@ def unzip_azm_to_tmp_folder(args):
             dbfile = os.path.join(dir_processing_azm,"azqdata.db")
             #print "get_schema_shasum_and_exit 2"
             cmd = [args['sqlite3_executable'],dbfile,".schema"]
-            #print "call cmd:", cmd
+            print "call cmd:", cmd
             schema = subprocess.check_output(cmd)
             #print "get_schema_shasum_and_exit 3"
             sha1.update(schema)
@@ -531,7 +531,7 @@ def check_azm_azq_app_version(args):
     MIN_APP_V2 = 587
     sqlstr = "select log_app_version from logs" # there is always only 1 ver of AZENQOS app for 1 azm - and normally 1 row of logs per azm too - but limit just in-case to be future-proof 
     cmd = [args['sqlite3_executable'],args['file'],sqlstr]
-    #print "call cmd:", cmd
+    print "call cmd:", cmd
     outstr = subprocess.check_output(cmd).strip()
     outstr = outstr.replace("v","") # replace 'v' prefix - like "v3.0.562" outstr
     parts = outstr.split(".")
@@ -713,7 +713,7 @@ def process_azm_file(args):
         # get log_hash
         sqlstr = "select log_hash from logs limit 1"
         cmd = [args['sqlite3_executable'],args['file'],sqlstr]
-        #print "call cmd:", cmd
+        print "call cmd:", cmd
         outstr = subprocess.check_output(cmd)
         log_hash = outstr.strip()
         args['log_hash'] = long(log_hash)
@@ -1035,7 +1035,7 @@ if __name__ == '__main__':
         where = "where {} != ''".format(col) # not null and not empty
         sqlstr = "select {} from {} {} order by seqid desc limit 1;".format(col, table, where)
         cmd = [args['sqlite3_executable'],args['file'],sqlstr]
-        #print "call cmd:", cmd
+        print "call cmd:", cmd
         imei = subprocess.check_output(cmd).strip()
         args['imei'] = imei
 

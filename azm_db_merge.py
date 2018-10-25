@@ -165,12 +165,7 @@ def parse_cmd_args():
                         help="""Set debug (verbose) mode printing.
                         """,
                         default=False)
-    
-    parser.add_argument('--pg_copy_direct_file_access',
-                        action='store_true',
-                        help="""Set this if postgres can access the same filesystem/drive as this program - so postgres would read the temp dump csv directly instead of COPY via STDIN. However, on our tests sytem we found that this is slower than the default via STDIN.
-                        """,
-                        default=False)
+
 
     parser.add_argument('--get_schema_shasum_and_exit',
                         action='store_true',
@@ -365,7 +360,7 @@ def handle_sql3_dump_line(args, line):
                 create = False            
         
         if create:
-            print "processing table: {}".format(table_name)
+            #print "processing create at handler module..." # always create - flag override                
             handle_ret = g_create_function(args, line)
         
         

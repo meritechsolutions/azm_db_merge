@@ -324,44 +324,24 @@ def handle_sql3_dump_line(args, line):
         # get table name:
         table_name = line.split(" ")[2].replace("\"", "")
 
+        ''' put where in select at create csv instead - delete where would be a cmd and slower too
         if not args['unmerge']:
-            print "firt delete all rows with wrong modem timestamp before 48h of log_start_time and log_end_time for this table:", table_name
+            #print "delete all rows with wrong modem timestamp before 48h of log_start_time and log_end_time for this table:", table_name
             
-            sqlstr = "delete from {} where time < '{}' or time > '{}';".format(table_name, args['log_data_min_time'], args['log_data_max_time'])
+            sqlstr = "delete from {} where time < '{}' or time > '{}' or time is null;".format(table_name, args['log_data_min_time'], args['log_data_max_time'])
             cmd = [args['sqlite3_executable'],args['file'],sqlstr]
-            print "call cmd:", cmd
+            #print "call cmd:", cmd
             try:
                 outstr = subprocess.check_output(cmd)
-                print "delete from ret outstr:", outstr
+                #print "delete from ret outstr:", outstr
             except Exception as se:
                 print "WARNING: delete pre y2k rows from table failed exception:", se
+        '''
 
         print("\nprocessing: create/alter/insert for table_name: "+table_name)
         
-        # check if create is required for this table (omit if empty)
-        create = True        
-        if (not g_check_and_dont_create_if_empty):
-            pass # print "create_empty_tables specified in option - do create" # always create - flag override
-        else:
-            # checking can make final processing slower...
-            print("checking if table is empty ...")
-            sqlstr = "SELECT 1 FROM {} LIMIT 1".format(table_name)
-            cmd = [args['sqlite3_executable'],args['file'],sqlstr]
-            print "call cmd:", cmd
-            outstr = subprocess.check_output(cmd)
-            # print "check has_rows out: "+outstr
-            has_rows = (outstr.strip() == "1")
-            # print "check has_rows ret: " + str(has_rows)
-            if (has_rows):
-                print "table is not empty - do create"
-                create = True
-            else:
-                print "table is empty - omit create"
-                create = False            
-        
-        if create:
-            print "processing create at handler module..." # always create - flag override                
-            handle_ret = g_create_function(args, line)
+        print "processing create at handler module..." # always create - flag override                
+        handle_ret = g_create_function(args, line)
         
         
     elif (line.startswith("COMMIT;")):        
@@ -434,11 +414,13 @@ def unzip_azm_to_tmp_folder(args):
     os.mkdir(dir_processing_azm)
     
     dprint("unzip_azm_to_tmp_folder 3")
+
     
     try:
         azm = zipfile.ZipFile(args['azm_file'],'r')
         azm.extract("azqdata.db", dir_processing_azm)
-        
+
+        '''
         try:
             # handle malformed db cases
             
@@ -469,6 +451,7 @@ def unzip_azm_to_tmp_folder(args):
             type_, value_, traceback_ = sys.exc_info()
             exstr = traceback.format_exception(type_, value_, traceback_)
             print "WARNING: check malformed db exception:", exstr
+        '''
         
         if args['get_schema_shasum_and_exit']:
             print "get_schema_shasum_and_exit start"

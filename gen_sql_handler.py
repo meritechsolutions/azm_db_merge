@@ -623,7 +623,7 @@ def create(args, line):
             with g_conn as c:
                 g_cursor.execute("select * from information_schema.tables where table_schema=%s and table_name=%s", (args["pg_schema"],table_name,))
                 if bool(g_cursor.rowcount):
-                    print "omit already existing table - raise exception to check columns instead"
+                    #print "omit already existing table - raise exception to check columns instead"
                     raise Exception("table {} already exists - no need to create".format(table_name))
         
         ret = None
@@ -733,20 +733,21 @@ def create(args, line):
                 for log_hash_datetime in months_pt_check_list:
                 
                     log_hash_ym_str = log_hash_datetime.strftime('%Y_%m')
-                    print  "log_hash_datetime:", log_hash_datetime
+                    #print  "log_hash_datetime:", log_hash_datetime
 
                     ntn = "logs_{}".format(log_hash_ym_str) # simpler name because we got cases where schema's table name got truncated: activate_dedicated_eps_bearer_context_request_params_3170932708
                     pltn = "{}.{}".format(schema_per_month_name, ntn)
                     per_month_table_already_exists = False
                     with g_conn as c:
                         check_sql = "select * from information_schema.tables where table_schema='{}' and table_name='{}'".format(schema_per_month_name, ntn)
-                        print "check_sql:", check_sql
+                        #print "check_sql:", check_sql
                         g_cursor.execute(check_sql)
                         if bool(g_cursor.rowcount):
                             per_month_table_already_exists = True
 
                     if per_month_table_already_exists:
-                        print "omit create already existing per_month table:", pltn
+                        #print "omit create already existing per_month table:", pltn
+                        pass
                     else:
                         print "NOT omit create already existing per_month table:", pltn
                         cre_target_pt_sql = "CREATE TABLE {} PARTITION OF {} FOR VALUES from ('{}-1') to ('{}-1');".format(
@@ -800,9 +801,14 @@ def create(args, line):
                 if col_name == "geom":
                     geom_col_index = i
 
+            ############## wrong data format fixes
+            
             ### custom limit bsic len in case matched wrongly entered bsic to long str but pg takes max 5 char len for bsic
             if col_name == "gsm_bsic":
                 col_name = "substr(gsm_bsic, 0, 6) as gsm_bsic"  # limit to 5 char len (6 is last index excluding)
+            elif col_name == "android_cellid_from_cellfile":
+                col_name = "cast(android_cellid_from_cellfile as int) as android_cellid_from_cellfile"  # type cast required to remove non-int in cellfile data
+                
             
             col_select = col_select + pre + col_name + post            
             i = i + 1
@@ -824,6 +830,13 @@ def create(args, line):
             )
 
         if g_is_postgre:
+            select_sqlstr = 'select '+col_select+' from '+ table_name
+
+            # filter all tables but not the main logs table
+            if table_name != "logs":
+                select_sqlstr += " where time >= '{}' and time <= '{}'".format(args['log_data_min_time'], args['log_data_max_time'])
+                
+            #print "select_sqlstr:", select_sqlstr
             dump_cmd = [
                 args['sqlite3_executable'],
                 args['file'],
@@ -831,23 +844,26 @@ def create(args, line):
                 "-csv",
                 '-separator',',',
                 '-newline', '\n',
-                '.out ' + '"' +table_dump_fp.replace("\\","\\\\") + '"', # double backslash because it needs to go inside sqlite3 cmd parsing again
-                'select '+col_select+' from '+ table_name + ' where time is not null'
+                '.out ' + '"' +table_dump_fp.replace("\\","\\\\") + '"',  # double backslash because it needs to go inside sqlite3 cmd parsing again
+                select_sqlstr
                 ]
             dprint("dump_cmd:", dump_cmd)
             ret = call(
                 dump_cmd,
                 shell=False
             )
+            #print "dump_cmd:", dump_cmd
+            #print "dump_cmd ret:", ret
 
         table_dump_fp_adj = table_dump_fp + "_adj.csv"
         
-        # dont add lines where all cols are null - bug in older azm files causing COPY to fail...
+        ''' now we already add where time is null - no need to check this - dont add lines where all cols are null - bug in older azm files causing COPY to fail...
         all_cols_null_line = ""
         for ci in range(len(local_columns)):
             if ci != 0:
                 all_cols_null_line += ","
         print "all_cols_null_line:", all_cols_null_line
+        '''
 
         pd_csvadj_success = False
 

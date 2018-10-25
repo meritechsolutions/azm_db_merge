@@ -533,16 +533,24 @@ def check_azm_azq_app_version(args):
     cmd = [args['sqlite3_executable'],args['file'],sqlstr]
     print "call cmd:", cmd
     outstr = subprocess.check_output(cmd).strip()
-    outstr = outstr.replace("v","") # replace 'v' prefix - like "v3.0.562" outstr
-    parts = outstr.split(".")
-    v0 = int(parts[0]) * 1000 * 1000
-    v1 = int(parts[1]) * 1000
-    v2 = int(parts[2])
-    args["azm_apk_version"] = v0 + v1 + v2
-    if (args["azm_apk_version"] >= MIN_APP_V0*1000*1000 + MIN_APP_V1*1000 + MIN_APP_V2):
-        pass
-    else:
-        print "WARNING: azm too old - azm file must be from AZENQOS apps with versions {}.{}.{} or newer.".format(MIN_APP_V0,MIN_APP_V1,MIN_APP_V2)
+    try:
+        args["azm_apk_version"] = "0.0.0"
+        outstr = outstr.replace("v","") # replace 'v' prefix - like "v3.0.562" outstr
+        print "azm app version outstr:", outstr
+        parts = outstr.split(".")
+        v0 = int(parts[0]) * 1000 * 1000
+        v1 = int(parts[1]) * 1000
+        v2 = int(parts[2])
+        args["azm_apk_version"] = v0 + v1 + v2
+        if (args["azm_apk_version"] >= MIN_APP_V0*1000*1000 + MIN_APP_V1*1000 + MIN_APP_V2):
+            pass
+        else:
+            print "WARNING: azm too old - azm file must be from AZENQOS apps with versions {}.{}.{} or newer.".format(MIN_APP_V0,MIN_APP_V1,MIN_APP_V2)
+    except:
+        type_, value_, traceback_ = sys.exc_info()
+        exstr = traceback.format_exception(type_, value_, traceback_)
+        print "WARNING: check azm app version exception:", exstr
+
 
 def mv_azm_to_target_folder(args):
     mv_target_folder = args['move_imported_azm_files_to_folder']

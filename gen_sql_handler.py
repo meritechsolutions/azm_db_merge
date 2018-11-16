@@ -352,8 +352,12 @@ def commit(args, line):
             buf, dump_fp = buf
             with open(dump_fp, "rb") as dump_fp_fo:
                 g_cursor.copy_expert(buf, dump_fp_fo)
-        else:            
-            g_cursor.execute(buf)
+        else:
+            try:
+                g_cursor.execute(buf)
+            except Exception as e:
+                if "does not exist" in str(e) and args['unmerge']:
+                    print "WARNING: unmerge exception: {} - but ok for --umnerge mode if exec delete and face - does not exist exception...".format(e)
 
         print "# done execute cmd {}/{}: {}".format(i, n, buf)
         i = i + 1

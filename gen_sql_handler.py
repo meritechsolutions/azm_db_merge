@@ -273,7 +273,7 @@ def check_if_already_merged(args, log_hash):
                 sqlstr = "delete from \"logs\" where \"log_hash\" = '{}'".format(log_hash)
                 
                 g_exec_buf.append(sqlstr)
-                print "delete from logs table added to g_exec_buf..."
+                print "delete from logs table added to g_exec_buf: ", sqlstr
                 
             else:
                 raise Exception("ABORT: This log ({}) has already been imported/exists in target db (use --unmerge to remove first if you want to re-import).".format(log_hash))
@@ -354,10 +354,13 @@ def commit(args, line):
                 g_cursor.copy_expert(buf, dump_fp_fo)
         else:
             try:
-                g_cursor.execute(buf)
+                with g_conn as c:  # needed otherwise cursor would become invalid and unmerge would fail for no table cases handled below
+                    g_cursor.execute(buf)
             except Exception as e:
                 if "does not exist" in str(e) and args['unmerge']:
                     print "WARNING: unmerge exception: {} - but ok for --umnerge mode if exec delete and face - does not exist exception...".format(e)
+                else:
+                    raise e
 
         print "# done execute cmd {}/{}: {}".format(i, n, buf)
         i = i + 1

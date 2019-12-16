@@ -6,6 +6,13 @@ Setup instructions
   specify "add to PATH" during installer setup.
   - Ubuntu/Debian: sudo apt-get install python2.7 python2.7-dev
   
+- Install python package management
+  -  Windows: Download get-pip.py from https://bootstrap.pypa.io/get-pip.py and run python get-pip.py
+  -  Ubuntu/Debian: sudo apt-get install python-pip or download get-pip.py and run like Windows
+  
+- Install generic python dependency
+  -  pip install python-dateutil==2.8.1
+ 
 - Install 'sqlite3' binary
   - Windows: Download/install/add folder of sqlite3.exe to
   PATH (Environment Variables).
@@ -59,4 +66,5 @@ pip install pyodbc
 - Open Windows ODBC Data Source Administrator >
   Add "SQL Server Natve Client 11.0" >
   - config to the above user and database (uncheck 'translate...') 
+
 

@@ -166,6 +166,18 @@ def parse_cmd_args():
                         """,
                         default=False)
 
+    parser.add_argument('--keep_temp_dir',
+                        action='store_true',
+                        help="""Dont delete temp dirs (that holds csv dumps) at end for further manual analysis.
+                        """,
+                        default=False)
+
+    parser.add_argument('--dump_parquet',
+                        action='store_true',
+                        help="""Use Pandas to dump each table to Parquet files.
+                        """,
+                        default=False)
+
 
     parser.add_argument('--get_schema_shasum_and_exit',
                         action='store_true',
@@ -672,14 +684,14 @@ def process_azm_file(args):
             print "import ret: "+str(ret)
             if (ret == 0):
                 print( "\n=== SUCCESS - import completed in %s seconds" % (time.time() - proc_start_time) )
-                if debug_helpers.debug == 1:
-                    print "debug mode keep_tmp_dir..."
+                if debug_helpers.debug == 1 or args['keep_temp_dir']:
+                    print "debug mode keep_tmp_dir:", dir_processing_azm
                 else:
                     cleanup_tmp_dir(dir_processing_azm)
                 return 0
             else:
-                if debug_helpers.debug == 1:
-                    print "debug mode keep_tmp_dir..."
+                if debug_helpers.debug == 1 or args['keep_temp_dir']:
+                    print "debug mode keep_tmp_dir:", dir_processing_azm
                 else:
                     cleanup_tmp_dir(dir_processing_azm)
 
@@ -858,8 +870,8 @@ def process_azm_file(args):
         except:
             pass
         
-        if debug_helpers.debug == 1:
-            print "debug mode keep_tmp_dir..."
+        if debug_helpers.debug == 1 or args['keep_temp_dir']:
+            print "debug mode keep_tmp_dir:", dir_processing_azm
             pass # keep files for analysis of exceptions in debug mode
         else:
             print "cleanup_tmp_dir..."

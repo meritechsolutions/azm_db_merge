@@ -16,6 +16,8 @@ import time
 import datetime
 from dateutil.relativedelta import relativedelta
 import random
+import pandas as pd
+import sqlite3
 
 
 # global vars
@@ -862,6 +864,13 @@ def create(args, line):
             )
             #print "dump_cmd:", dump_cmd
             #print "dump_cmd ret:", ret
+
+        if args['dump_parquet']:
+            with sqlite3.connect(args['file']) as dbcon:
+                pq_select = select_sqlstr.replace('hex(geom)', 'hex(geom) as geom')
+                #print "dump_parquet select_sqlstr:", select_sqlstr
+                df = pd.read_sql(pq_select, dbcon)
+                df.to_parquet(table_dump_fp.replace(".csv",".parquet"), engine='pyarrow')
 
         table_dump_fp_adj = table_dump_fp + "_adj.csv"
         

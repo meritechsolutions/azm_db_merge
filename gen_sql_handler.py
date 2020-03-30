@@ -370,6 +370,39 @@ def commit(args, line):
     print("### all cmds exec success - COMMIT now...")    
     g_conn.commit()
     print("### COMMIT success...")
+
+    # do mc cp all parquet files to object store...
+    if args['dump_parquet']:
+        bucket_name = ""
+        if "AZM_BUCKET_NAME_OVERRIDE" in os.environ and os.environ["AZM_BUCKET_NAME_OVERRIDE"]:
+            bucket_name = os.environ["AZM_BUCKET_NAME_OVERRIDE"]
+        else:
+            subdomain = os.environ['WEB_DOMAIN_NAME'].split(".")[0]
+            bucket_name = "azm-"+subdomain
+
+        bucket_ym_folder_name = args['log_hash_ym_str'].replace("_", "-")
+        if args['unmerge']:
+            # mc find s3/bucket --name "*.jpg" --watch --exec "mc cp {} play/bucket"
+            rmcmd = "mc find minio_logs/{}/{}/ --name '*_{}.parquet'".format(
+                bucket_name,
+                bucket_ym_folder_name,
+                args['log_hash']
+            )
+            rmcmd += " --exec 'mc rm {}'"
+            print "mc rmcmd:", rmcmd
+            rmcmdret = os.system(rmcmd)
+            if rmcmdret != 0:
+                raise Exception("Copy files to object store failed cmcmdret: {}".format(rmcmdret))
+        else:
+            cpcmd = "mc cp {}/*.parquet minio_logs/{}/{}/".format(
+                g_dir_processing_azm,
+                bucket_name,
+                bucket_ym_folder_name,
+            )
+            print "mc cpcmd:", cpcmd
+            cpcmdret = os.system(cpcmd)
+            if cpcmdret != 0:
+                raise Exception("Copy files to object store failed cmcmdret: {}".format(cpcmdret))
     
     return True
 
@@ -736,13 +769,12 @@ def create(args, line):
             else:
                 log_hash = args['log_hash']
                 
-                ##  check/create partitions for month for log_hash, prev month, after month
-                ori_log_hash_datetime =  datetime.datetime.fromtimestamp(log_hash & 0xffffffff)  # log_hash lower 32 bits is the timestamp
+                ##  check/create partitions for month for log_hash, prev month, after month                
+                ori_log_hash_datetime = args['ori_log_hash_datetime']
                 months_pt_check_list = [ori_log_hash_datetime+relativedelta(months=-1), ori_log_hash_datetime, ori_log_hash_datetime+relativedelta(months=+1)]
                 
-                for log_hash_datetime in months_pt_check_list:
-                
-                    log_hash_ym_str = log_hash_datetime.strftime('%Y_%m')
+                for pre_post_month_log_hash_datetime in months_pt_check_list:
+                    log_hash_ym_str = pre_post_month_log_hash_datetime.strftime('%Y_%m')
                     #print  "log_hash_datetime:", log_hash_datetime
 
                     ntn = "logs_{}".format(log_hash_ym_str) # simpler name because we got cases where schema's table name got truncated: activate_dedicated_eps_bearer_context_request_params_3170932708
@@ -763,8 +795,8 @@ def create(args, line):
                         cre_target_pt_sql = "CREATE TABLE {} PARTITION OF {} FOR VALUES from ('{}-1') to ('{}-1');".format(
                             pltn,
                             table_name,
-                            log_hash_datetime.strftime("%Y-%m"),
-                            (log_hash_datetime+relativedelta(months=+1)).strftime("%Y-%m")
+                            pre_post_month_log_hash_datetime.strftime("%Y-%m"),
+                            (pre_post_month_log_hash_datetime+relativedelta(months=+1)).strftime("%Y-%m")
                         )
                         if args['pg10_partition_index_log_hash']:
                             cre_index_for_pt_sql = "CREATE INDEX ON {} (log_hash);".format(pltn)
@@ -858,19 +890,32 @@ def create(args, line):
                 select_sqlstr
                 ]
             dprint("dump_cmd:", dump_cmd)
-            ret = call(
-                dump_cmd,
-                shell=False
-            )
+
+            # if parquet dump mode do only logs table dump to track already imported
+            if (not args['dump_parquet']) or table_name == "logs":
+                ret = call(
+                    dump_cmd,
+                    shell=False
+                )
             #print "dump_cmd:", dump_cmd
             #print "dump_cmd ret:", ret
 
         if args['dump_parquet']:
             with sqlite3.connect(args['file']) as dbcon:
-                pq_select = select_sqlstr.replace('hex(geom)', 'hex(geom) as geom')
-                #print "dump_parquet select_sqlstr:", select_sqlstr
-                df = pd.read_sql(pq_select, dbcon)
-                df.to_parquet(table_dump_fp.replace(".csv",".parquet"), engine='pyarrow')
+                try:
+                    pq_select = select_sqlstr.replace('hex(geom)', 'hex(geom) as geom')
+                    #print "dump_parquet select_sqlstr:", select_sqlstr
+                    df = pd.read_sql(pq_select, dbcon)
+                    # TODO check and convert type of each column...
+                    df.to_parquet(table_dump_fp.replace(".csv","_{}.parquet".format(args['log_hash'])), engine='pyarrow')
+                except:
+                    type_, value_, traceback_ = sys.exc_info()
+                    exstr = str(traceback.format_exception(type_, value_, traceback_))
+                    print "WARNING: dump to parquet exception:", exstr
+
+                if not table_name == "logs":
+                    return True  # dont do further csv formatting as we are doing dump_parquet mode -  but allow logs table insert to track already imported state
+
 
         table_dump_fp_adj = table_dump_fp + "_adj.csv"
         

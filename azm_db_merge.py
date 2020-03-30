@@ -720,6 +720,10 @@ def process_azm_file(args):
         outstr = subprocess.check_output(cmd)
         log_hash = outstr.strip()
         args['log_hash'] = long(log_hash)
+        ori_log_hash_datetime =  datetime.fromtimestamp(args['log_hash'] & 0xffffffff)  # log_hash lower 32 bits is the timestamp
+        args['ori_log_hash_datetime'] = ori_log_hash_datetime
+        log_hash_ym_str = ori_log_hash_datetime.strftime('%Y_%m')
+        args['log_hash_ym_str'] = log_hash_ym_str
 
         if log_hash == 0:
             raise Exception("FATAL: invalid log_hash == 0 case")

@@ -907,7 +907,7 @@ def create(args, line):
                     #print "dump_parquet select_sqlstr:", select_sqlstr
                     df = pd.read_sql(pq_select, dbcon)
                     # TODO check and convert type of each column...
-                    df.to_parquet(table_dump_fp.replace(".csv","_{}.parquet".format(args['log_hash'])), engine='pyarrow')
+                    df.to_parquet(table_dump_fp.replace(".csv","_{}.parquet".format(args['log_hash'])), engine='pyarrow', compression='gzip')  # gzip size seems smaller - like signalling table of /host_shared_dir/logs/2019_12/processed/865184035420781-25_12_2019-16_09_55_processed.azm - gzip size 1.0 MB, snappy 1.8 MB
                 except:
                     type_, value_, traceback_ = sys.exc_info()
                     exstr = str(traceback.format_exception(type_, value_, traceback_))

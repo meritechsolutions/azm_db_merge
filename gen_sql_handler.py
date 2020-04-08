@@ -947,11 +947,16 @@ def create(args, line):
                             df[col] = df[col].astype(col_type, copy=False)
                         except Exception as e:
                             print "WARNING: got exception converting df column {} to type: {} - df[col]: {}".format(col, col_type, df[col])
-                            if col_type == np.float64 and (df[col].dtype == object or df[col].dtype == str or df[col].dtype == unicode):
+
+                            # try handle/recover for known cases
+                            if col.endswith("time"):
+                                print "exception handle col endswith 'time' try pd.to_datetime() on col..."
+                                df[col] = pd.to_datetime(df[col].astype(unicode))
+                            elif col_type == np.float64 and (df[col].dtype == object or df[col].dtype == str or df[col].dtype == unicode):
                                 print "excpetion handle retry with <series>.str.strip().replace('', np.nan) next... for case str column and target is np.float64..."
-                                df[col] = df[col].astype(str).str.strip().replace('', np.nan).astype(col_type, copy=False)
+                                df[col] = df[col].astype(unicode).str.strip().replace('', np.nan).astype(col_type, copy=False)                            
                             else:
-                                raise e
+                                raise e  # unknown recover case
                     
                 if len(df):
                     df.to_parquet(table_dump_fp.replace(".csv","_{}.parquet".format(args['log_hash'])), engine='pyarrow', compression='gzip')  # gzip size seems much smaller - like signalling table of /host_shared_dir/logs/2019_12/processed/865184035420781-25_12_2019-16_09_55_processed.azm - gzip size 1.0 MB, snappy 1.8 MB

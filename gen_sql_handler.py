@@ -54,8 +54,9 @@ KNOWN_COL_TYPES_LOWER_TO_PD_PARQUET_TYPE_DICT = {
     "text": unicode,
     "geometry": str,
     "double": np.float64,
-    "float": np.float64,
+    "float": np.float64,    
     "bigint": np.float64, # EXCEPT special allowed cols like 'log_hash' that will never be null - they will be np.int64 - but for generic numbers can be null so pd df needs it as float64
+    "integer": np.float64, # for generic numbers can be null so pd df needs it as float64
     "int": np.float64,  # for generic numbers can be null so pd df needs it as float64
 }
 

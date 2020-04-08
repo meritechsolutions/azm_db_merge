@@ -17,6 +17,7 @@ import datetime
 from dateutil.relativedelta import relativedelta
 import random
 import pandas as pd
+import numpy as np
 import sqlite3
 
 
@@ -44,6 +45,19 @@ anymore until we do commit() after each execute for all tables
 
 # TODO: set/use as global - from args from azm_db_merge - where .db is extracted from azm    
 g_dir_processing_azm = None
+
+KNOWN_COL_TYPES_LOWER_TO_PD_PARQUET_TYPE_DICT = {
+    "timestamp": datetime,
+    "time": datetime,
+    "date": datetime,
+    "datetime": datetime,
+    "text": str,
+    "geometry": str,
+    "double": np.float64,
+    "float": np.float64,
+    "bigint": np.float64, # EXCEPT special allowed cols like 'log_hash' that will never be null - they will be np.int64 - but for generic numbers can be null so pd df needs it as float64
+    "int": np.float64,  # for generic numbers can be null so pd df needs it as float64
+}
 
 ### below are functions required/used by azq_db_merge        
 
@@ -619,150 +633,152 @@ def create(args, line):
     remote_column_names = None
 
     is_contains_geom_col = False
-    
-    try:
-        dprint("create sqlstr: "+sqlstr)
-        
-        if g_is_postgre:
 
-            if args['pg10_partition_by_month']:
-                if table_name == "logs":
-                    # dont partition logs table
-                    pass
-                else:
-                    # create target partition for this log + table
-                    # ok - partition this table
-                    sqlstr = sqlstr.replace(";","") +" PARTITION BY RANGE (time);"
-                    try:
-                        with g_conn as c:
-                            g_cursor.execute("SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{}';".format(schema_per_month_name))
-                            if bool(g_cursor.rowcount):
-                                print "schema_per_month_name already exists:", schema_per_month_name
-                                pass
-                            else:
-                                print "cre schema now because: NOT schema_per_month_name already exists:", schema_per_month_name
-                                with g_conn as c:
-                                    c_table_per_month_sql = "create schema {};".format(schema_per_month_name)
-                                    ret = g_cursor.execute(c_table_per_month_sql)
-                                    g_conn.commit()
-                                    print "success: create per_month ["+c_table_per_month_sql+"] success"
-                    except:
-                        type_, value_, traceback_ = sys.exc_info()
-                        exstr = str(traceback.format_exception(type_, value_, traceback_))
-                        print "WARNING: create table_per_month schema failed - next insert/COPY commands would likely faile now - exstr:", exstr
+    if (not args['dump_parquet']) or (table_name == "logs"):
+        try:
+            dprint("create sqlstr: "+sqlstr)
+
+            if g_is_postgre:
+
+                if args['pg10_partition_by_month']:
+                    if table_name == "logs":
+                        # dont partition logs table
+                        pass
+                    else:
+                        # create target partition for this log + table
+                        # ok - partition this table
+                        sqlstr = sqlstr.replace(";","") +" PARTITION BY RANGE (time);"
+                        try:
+                            with g_conn as c:
+                                g_cursor.execute("SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{}';".format(schema_per_month_name))
+                                if bool(g_cursor.rowcount):
+                                    print "schema_per_month_name already exists:", schema_per_month_name
+                                    pass
+                                else:
+                                    print "cre schema now because: NOT schema_per_month_name already exists:", schema_per_month_name
+                                    with g_conn as c:
+                                        c_table_per_month_sql = "create schema {};".format(schema_per_month_name)
+                                        ret = g_cursor.execute(c_table_per_month_sql)
+                                        g_conn.commit()
+                                        print "success: create per_month ["+c_table_per_month_sql+"] success"
+                        except:
+                            type_, value_, traceback_ = sys.exc_info()
+                            exstr = str(traceback.format_exception(type_, value_, traceback_))
+                            print "WARNING: create table_per_month schema failed - next insert/COPY commands would likely faile now - exstr:", exstr
 
 
-            dprint("create sqlstr postgres mod: "+sqlstr)
-            is_contains_geom_col = True            
-            # postgis automatically creates/maintains "geometry_columns" 'view'
+                dprint("create sqlstr postgres mod: "+sqlstr)
+                is_contains_geom_col = True            
+                # postgis automatically creates/maintains "geometry_columns" 'view'
 
-        
 
-        if g_is_ms:
-            dprint("create sqlstr mod mssql geom: "+sqlstr)
-            is_contains_geom_col = True            
 
-        if g_is_postgre:
+            if g_is_ms:
+                dprint("create sqlstr mod mssql geom: "+sqlstr)
+                is_contains_geom_col = True            
+
+            if g_is_postgre:
+                with g_conn as c:
+                    g_cursor.execute("select * from information_schema.tables where table_schema=%s and table_name=%s", (args["pg_schema"],table_name,))
+                    if bool(g_cursor.rowcount):
+                        #print "omit already existing table - raise exception to check columns instead"
+                        raise Exception("table {} already exists - no need to create".format(table_name))
+
+            ret = None
+            # use with for auto rollback() on g_conn on expected fails like already exists
             with g_conn as c:
-                g_cursor.execute("select * from information_schema.tables where table_schema=%s and table_name=%s", (args["pg_schema"],table_name,))
-                if bool(g_cursor.rowcount):
-                    #print "omit already existing table - raise exception to check columns instead"
-                    raise Exception("table {} already exists - no need to create".format(table_name))
-        
-        ret = None
-        # use with for auto rollback() on g_conn on expected fails like already exists
-        with g_conn as c:
-            ret = g_cursor.execute(sqlstr)
-        # commit now otherwise COPY might not see partitions
-        g_conn.commit()
-        dprint("create execute ret: "+str(ret))
-        
-        """ if control reaches here then the create is successful
-        - table was not existing earlier - so remote cols must be the same
-        """
-        remote_column_names = local_column_names
-        
-    except Exception as e:
-        emsg = str(e)
-        dprint("create failed: " + emsg + "\n from sqlstr:\n" +
-               sqlstr+"\nori line:\n"+line)
-        if ("There is already an object named" in emsg or
-            " already exists" in emsg):
-            
-            dprint("""This table already exists -
-            checking if all local columns already exist in remote
-            - otherwise will add each missing cols to
-            remote table before inserting to it.""")
-            
-            remote_columns = get_remote_columns(args, table_name)
-            remote_column_names = get_col_names(remote_columns)
-            
-            if (len(remote_columns) == 0):
-                raise Exception("FATAL: failed to parse/list remote columns")
-                
-    
-                        
-            # now get local columns that are not in remote
-            
-            local_columns_not_in_remote = []
-                                    
-            for col in local_columns:
-                col_name = col[0]
-                col_type = col[1]
+                ret = g_cursor.execute(sqlstr)
+            # commit now otherwise COPY might not see partitions
+            g_conn.commit()
+            dprint("create execute ret: "+str(ret))
 
-                ####### quickfix: col_type override for unsigned int32 cols from sqlite (bindLong already) - conv to bigint in pg as pg doesnt have unsigned
-                if col_name == "lte_volte_rtp_source_ssrc" or col_name == "lte_volte_rtp_timestamp":
-                    # might need to psql to do first manually if log was already imported using older azm_db_merge:
-                    # alter table all_logs.lte_volte_rtp_msg alter column lte_volte_rtp_source_ssrc type bigint;
-                    # alter table all_logs.lte_volte_rtp_msg alter column lte_volte_rtp_timestamp type bigint;
-                    
-                    col_type = "bigint"                
-                #######################
-                
-                is_already_in_table = col_name in remote_column_names
-                dprint("local_col_name: " + col_name +
-                       " col_type: " + col_type +
-                       " - is_already_in_table: "+str(is_already_in_table))
-                if (not is_already_in_table):
-                    local_columns_not_in_remote.append(
-                        ' "{}" {}'.format(col_name, col_type))
-                # TODO: handle if different type?
+            """ if control reaches here then the create is successful
+            - table was not existing earlier - so remote cols must be the same
+            """
+            remote_column_names = local_column_names
 
-            n_cols_to_add = len(local_columns_not_in_remote)
-            
-            if (n_cols_to_add == 0):
-                dprint("n_cols_to_add == 0 - no need to alter table")
-            else:
-                print "n_cols_to_add: " + str(n_cols_to_add) + " - need to alter table - add cols:" + str(local_columns_not_in_remote) + "\nremote_cols:\n"+str(remote_columns)
-                # example: ALTER TABLE dbo.doc_exa ADD column_b VARCHAR(20) NULL, column_c INT NULL ; 
-                alter_str = "ALTER TABLE \"{}\" ".format(table_name)
-                alter_cols = ""                
-                
-                for new_col in local_columns_not_in_remote:
-                    # not first
-                    prefix = ""
-                    if (alter_cols != ""):
-                        prefix = ", "
-                    alter_cols = alter_cols + prefix + " ADD " + new_col
-                    
-                alter_str = alter_str + alter_cols + ";"
-                
-                sqlstr = sql_adj_line(alter_str)
-                print "execute alter_str: " + sqlstr
-                exec_creatept_or_alter_handle_concurrency(sqlstr)
-                
-                # re-get remote cols
+        except Exception as e:
+            emsg = str(e)
+            dprint("create failed: " + emsg + "\n from sqlstr:\n" +
+                   sqlstr+"\nori line:\n"+line)
+            if ("There is already an object named" in emsg or
+                " already exists" in emsg):
+
+                dprint("""This table already exists -
+                checking if all local columns already exist in remote
+                - otherwise will add each missing cols to
+                remote table before inserting to it.""")
+
                 remote_columns = get_remote_columns(args, table_name)
                 remote_column_names = get_col_names(remote_columns)
-                print("get_remote_columns after alter: "+str(remote_column_names))
-                
-        else:
-            raise Exception("FATAL: create table error - : \nemsg:\n "+emsg+" \nsqlstr:\n"+sqlstr)
-            
+
+                if (len(remote_columns) == 0):
+                    raise Exception("FATAL: failed to parse/list remote columns")
+
+
+
+                # now get local columns that are not in remote
+
+                local_columns_not_in_remote = []
+
+                for col in local_columns:
+                    col_name = col[0]
+                    col_type = col[1]
+
+                    ####### quickfix: col_type override for unsigned int32 cols from sqlite (bindLong already) - conv to bigint in pg as pg doesnt have unsigned
+                    if col_name == "lte_volte_rtp_source_ssrc" or col_name == "lte_volte_rtp_timestamp":
+                        # might need to psql to do first manually if log was already imported using older azm_db_merge:
+                        # alter table all_logs.lte_volte_rtp_msg alter column lte_volte_rtp_source_ssrc type bigint;
+                        # alter table all_logs.lte_volte_rtp_msg alter column lte_volte_rtp_timestamp type bigint;
+
+                        col_type = "bigint"                
+                    #######################
+
+                    is_already_in_table = col_name in remote_column_names
+                    dprint("local_col_name: " + col_name +
+                           " col_type: " + col_type +
+                           " - is_already_in_table: "+str(is_already_in_table))
+                    if (not is_already_in_table):
+                        local_columns_not_in_remote.append(
+                            ' "{}" {}'.format(col_name, col_type))
+                    # TODO: handle if different type?
+
+                n_cols_to_add = len(local_columns_not_in_remote)
+
+                if (n_cols_to_add == 0):
+                    dprint("n_cols_to_add == 0 - no need to alter table")
+                else:
+                    print "n_cols_to_add: " + str(n_cols_to_add) + " - need to alter table - add cols:" + str(local_columns_not_in_remote) + "\nremote_cols:\n"+str(remote_columns)
+                    # example: ALTER TABLE dbo.doc_exa ADD column_b VARCHAR(20) NULL, column_c INT NULL ; 
+                    alter_str = "ALTER TABLE \"{}\" ".format(table_name)
+                    alter_cols = ""                
+
+                    for new_col in local_columns_not_in_remote:
+                        # not first
+                        prefix = ""
+                        if (alter_cols != ""):
+                            prefix = ", "
+                        alter_cols = alter_cols + prefix + " ADD " + new_col
+
+                    alter_str = alter_str + alter_cols + ";"
+
+                    sqlstr = sql_adj_line(alter_str)
+                    print "execute alter_str: " + sqlstr
+                    exec_creatept_or_alter_handle_concurrency(sqlstr)
+
+                    # re-get remote cols
+                    remote_columns = get_remote_columns(args, table_name)
+                    remote_column_names = get_col_names(remote_columns)
+                    print("get_remote_columns after alter: "+str(remote_column_names))
+
+            else:
+                raise Exception("FATAL: create table error - : \nemsg:\n "+emsg+" \nsqlstr:\n"+sqlstr)
+
+    local_col_name_to_type_dict = {}
 
     if g_bulk_insert_mode:
 
-        if args['pg10_partition_by_month']:
+        if args['pg10_partition_by_month'] and not args['dump_parquet']:
             if table_name == "logs":
                 # dont partition logs table
                 pass
@@ -830,6 +846,7 @@ def create(args, line):
         for col in local_columns:
             col_name = col[0]
             col_type = col[1]
+            local_col_name_to_type_dict[col_name] = col_type
             if first:
                 first = False
             else:
@@ -902,16 +919,41 @@ def create(args, line):
 
         if args['dump_parquet']:
             with sqlite3.connect(args['file']) as dbcon:
-                try:
-                    pq_select = select_sqlstr.replace('hex(geom)', 'hex(geom) as geom')
-                    #print "dump_parquet select_sqlstr:", select_sqlstr
-                    df = pd.read_sql(pq_select, dbcon)
-                    # TODO check and convert type of each column...
-                    df.to_parquet(table_dump_fp.replace(".csv","_{}.parquet".format(args['log_hash'])), engine='pyarrow', compression='gzip')  # gzip size seems smaller - like signalling table of /host_shared_dir/logs/2019_12/processed/865184035420781-25_12_2019-16_09_55_processed.azm - gzip size 1.0 MB, snappy 1.8 MB
+                #try:
+                pq_select = select_sqlstr.replace('hex(geom)', 'hex(geom) as geom')
+                #print "dump_parquet select_sqlstr:", select_sqlstr
+                df = pd.read_sql(pq_select, dbcon)
+                for col in df.columns:
+                    # set as per local_col_name_to_type_dict
+                    col_type_str = local_col_name_to_type_dict[col].lower()
+                    col_type = None
+
+                    if col == "log_hash":
+                        col_type = np.int64
+                    elif col_type_str in KNOWN_COL_TYPES_LOWER_TO_PD_PARQUET_TYPE_DICT:
+                        col_type = KNOWN_COL_TYPES_LOWER_TO_PD_PARQUET_TYPE_DICT[col_type_str]
+                    elif col_type_str.startswith("varchar"):
+                        col_type = str
+                        
+                    if col_type is None:
+                        raise Exception("dump_parquet mode - failed to map col_type for col_type_str: {} of column: {}".format(col_type_str, col))
+                    
+                    # set type as per coltype
+                    #print "prepare parquet: set col {} to type {} from src type {}".format(col, col_type, col_type_str)
+                    if col_type == datetime:
+                        df[col] = pd.to_datetime(df[col])
+                    else:
+                        df[col] = df[col].astype(col_type, copy=False)
+                    
+                if len(df):
+                    df.to_parquet(table_dump_fp.replace(".csv","_{}.parquet".format(args['log_hash'])), engine='pyarrow', compression='gzip')  # gzip size seems much smaller - like signalling table of /host_shared_dir/logs/2019_12/processed/865184035420781-25_12_2019-16_09_55_processed.azm - gzip size 1.0 MB, snappy 1.8 MB
+                '''
+                let it fail if dump of any failed
                 except:
                     type_, value_, traceback_ = sys.exc_info()
                     exstr = str(traceback.format_exception(type_, value_, traceback_))
                     print "WARNING: dump to parquet exception:", exstr
+                '''
 
                 if not table_name == "logs":
                     return True  # dont do further csv formatting as we are doing dump_parquet mode -  but allow logs table insert to track already imported state

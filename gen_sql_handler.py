@@ -51,7 +51,7 @@ KNOWN_COL_TYPES_LOWER_TO_PD_PARQUET_TYPE_DICT = {
     "time": datetime,
     "date": datetime,
     "datetime": datetime,
-    "text": str,
+    "text": unicode,
     "geometry": str,
     "double": np.float64,
     "float": np.float64,
@@ -933,7 +933,7 @@ def create(args, line):
                     elif col_type_str in KNOWN_COL_TYPES_LOWER_TO_PD_PARQUET_TYPE_DICT:
                         col_type = KNOWN_COL_TYPES_LOWER_TO_PD_PARQUET_TYPE_DICT[col_type_str]
                     elif col_type_str.startswith("varchar"):
-                        col_type = str
+                        col_type = unicode
                         
                     if col_type is None:
                         raise Exception("dump_parquet mode - failed to map col_type for col_type_str: {} of column: {}".format(col_type_str, col))
@@ -945,9 +945,10 @@ def create(args, line):
                     else:
                         try:
                             df[col] = df[col].astype(col_type, copy=False)
-                        except Exception as e:                            
+                        except Exception as e:
+                            print "WARNING: got exception converting df column {} to type: {} - df[col]: {}".format(col, col_type, df[col])
                             if col_type == np.float64 and (df[col].dtype == object or df[col].dtype == str or df[col].dtype == unicode):
-                                print "WARNING: got exception converting df column {} to type: {} - df[col]: {} - retry with <series>.str.strip().replace('', np.nan) next... for case str column and target is np.float64...".format(col, col_type, df[col])
+                                print "excpetion handle retry with <series>.str.strip().replace('', np.nan) next... for case str column and target is np.float64..."
                                 df[col] = df[col].astype(str).str.strip().replace('', np.nan).astype(col_type, copy=False)
                             else:
                                 raise e

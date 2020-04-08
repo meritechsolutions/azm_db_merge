@@ -943,7 +943,14 @@ def create(args, line):
                     if col_type == datetime:
                         df[col] = pd.to_datetime(df[col])
                     else:
-                        df[col] = df[col].astype(col_type, copy=False)
+                        try:
+                            df[col] = df[col].astype(col_type, copy=False)
+                        except Exception as e:                            
+                            if col_type == np.float64 and (df[col].dtype == object or df[col].dtype == str or df[col].dtype == unicode):
+                                print "WARNING: got exception converting df column {} to type: {} - df[col]: {} - retry with <series>.str.strip().replace('', np.nan) next... for case str column and target is np.float64...".format(col, col_type, df[col])
+                                df[col] = df[col].astype(str).str.strip().replace('', np.nan).astype(col_type, copy=False)
+                            else:
+                                raise e
                     
                 if len(df):
                     df.to_parquet(table_dump_fp.replace(".csv","_{}.parquet".format(args['log_hash'])), engine='pyarrow', compression='gzip')  # gzip size seems much smaller - like signalling table of /host_shared_dir/logs/2019_12/processed/865184035420781-25_12_2019-16_09_55_processed.azm - gzip size 1.0 MB, snappy 1.8 MB

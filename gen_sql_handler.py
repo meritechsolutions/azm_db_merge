@@ -19,6 +19,8 @@ import random
 import pandas as pd
 import numpy as np
 import sqlite3
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 
 # global vars
@@ -52,7 +54,7 @@ KNOWN_COL_TYPES_LOWER_TO_PD_PARQUET_TYPE_DICT = {
     "date": datetime,
     "datetime": datetime,
     "text": unicode,
-    "geometry": str,
+    "geometry": bytearray,
     "double": np.float64,
     "float": np.float64,    
     "bigint": np.float64, # EXCEPT special allowed cols like 'log_hash' that will never be null - they will be np.int64 - but for generic numbers can be null so pd df needs it as float64
@@ -920,10 +922,25 @@ def create(args, line):
 
         if args['dump_parquet']:
             with sqlite3.connect(args['file']) as dbcon:
-                #try:
-                pq_select = select_sqlstr.replace('hex(geom)', 'hex(geom) as geom')
+
+                ###### try convert spatialite geom to wkb
+                pq_select = select_sqlstr.replace('hex(geom)', '''(
+/* little endian, point */ '0100000001' 
+/* || is sqlite string + */ ||
+/* x offset 86 but sqlite offset starts from 1 so +1, 16 bytes */ substr(hex(geom), 86+1, 16) 
+/* || is sqlite string + */ ||
+/* y offset 102 but sqlite offset starts from 1 so +1, 16 bytes */substr(hex(geom), 102+1, 16)
+) as geom''')
                 #print "dump_parquet select_sqlstr:", select_sqlstr
                 df = pd.read_sql(pq_select, dbcon)
+                #print "df cols:", df.columns
+                if 'geom' in df.columns:  # not all tables have geom column
+                    # restore null geom rows that would now appear as '0100000001'
+                    to_null_mask = df.geom == '0100000001'
+                    df.loc[to_null_mask, "geom"] = None
+                    df["geom"] = df["geom"].str.decode('hex')
+                ##############################
+                
                 for col in df.columns:
                     # set as per local_col_name_to_type_dict
                     col_type_str = local_col_name_to_type_dict[col].lower()
@@ -960,7 +977,13 @@ def create(args, line):
                                 raise e  # unknown recover case
                     
                 if len(df):
-                    df.to_parquet(table_dump_fp.replace(".csv","_{}.parquet".format(args['log_hash'])), engine='pyarrow', compression='gzip')  # gzip size seems much smaller - like signalling table of /host_shared_dir/logs/2019_12/processed/865184035420781-25_12_2019-16_09_55_processed.azm - gzip size 1.0 MB, snappy 1.8 MB
+                    pqfp = table_dump_fp.replace(".csv","_{}.parquet".format(args['log_hash']))
+                    '''
+                    with open(pqfp, "wb") as fos:
+                        pq.write_table(pa.Table.from_pandas(df), fos, flavor='spark', compression='gzip')
+                    '''
+                    # use pyarrow above so we can specify spark flavor instead
+                    df.to_parquet(pqfp, engine='pyarrow', compression='gzip')  # gzip size seems much smaller - like signalling table of /host_shared_dir/logs/2019_12/processed/865184035420781-25_12_2019-16_09_55_processed.azm - gzip size 1.0 MB, snappy 1.8 MB
                 '''
                 let it fail if dump of any failed
                 except:

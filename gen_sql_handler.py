@@ -452,7 +452,7 @@ def find_and_conv_spatialite_blob_to_wkb(csv_line):
 
     parse:
     spatialite header: 00 (str_off 0 str_len 2)
-    endian: 01 (str_off 2 str_len 2)
+    endian: 01 little endian (str_off 2 str_len 2) (spec: if this GEOMETRY is BIG_ENDIAN ordered must contain a 0x00 byte value otherwise, if this GEOMETRY is LITTLE_ENDIAN ordered must contain a 0x01 byte value)
     SRID: E6 10 00 00 (str_off 4 str_len 8)
     MBR_MIN_X: DD 30 C0 F4 6C 2A 59 40 (str_off 12 str_len 16)
     MBR_MIN_Y: 41 43 20 13 00 8E 2B 40 (str_off 28 str_len 16)
@@ -925,7 +925,7 @@ def create(args, line):
 
                 ###### try convert spatialite geom to wkb
                 pq_select = select_sqlstr.replace('hex(geom)', '''(
-/* little endian, point */ '0100000001' 
+                /* little endian as in comment about Spatialite BLOB Format, point (1: 32 bit little endian is 01000000) */ '0101000000' 
 /* || is sqlite string + */ ||
 /* x offset 86 but sqlite offset starts from 1 so +1, 16 bytes */ substr(hex(geom), 86+1, 16) 
 /* || is sqlite string + */ ||
@@ -936,7 +936,7 @@ def create(args, line):
                 #print "df cols:", df.columns
                 if 'geom' in df.columns:  # not all tables have geom column
                     # restore null geom rows that would now appear as '0100000001'
-                    to_null_mask = df.geom == '0100000001'
+                    to_null_mask = df.geom == '0101000000'
                     df.loc[to_null_mask, "geom"] = None
                     df["geom"] = df["geom"].str.decode('hex')
                 ##############################

@@ -937,7 +937,7 @@ def create(args, line):
                 if 'geom' in df.columns:  # not all tables have geom column
                     # restore null geom rows that would now appear as '0100000001'
                     to_null_mask = df.geom == '0101000000'
-                    df.loc[to_null_mask, "geom"] = None
+                    # df.loc[to_null_mask, "geom"] = None - dont set it to null as would cause geospark exception: Caused by: java.lang.NullPointerException\n\tat org.apache.spark.sql.geosparksql.expressions.ST_GeomFromWKB...
                     df["geom"] = df["geom"].str.decode('hex')
                 ##############################
                 

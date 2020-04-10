@@ -21,7 +21,8 @@ import numpy as np
 import sqlite3
 import pyarrow as pa
 import pyarrow.parquet as pq
-
+import io
+import struct
 
 # global vars
 g_is_postgre = False
@@ -924,24 +925,74 @@ def create(args, line):
             with sqlite3.connect(args['file']) as dbcon:
 
                 ###### try convert spatialite geom to wkb
-                pq_select = select_sqlstr.replace('hex(geom)', '''(
-                /* little endian as in comment about Spatialite BLOB Format, point (1: 32 bit little endian is 01000000) */ '0101000000' 
-/* || is sqlite string + */ ||
-/* x offset 86 but sqlite offset starts from 1 so +1, 16 bytes */ substr(hex(geom), 86+1, 16) 
-/* || is sqlite string + */ ||
-/* y offset 102 but sqlite offset starts from 1 so +1, 16 bytes */substr(hex(geom), 102+1, 16)
-) as geom''')
+                pq_select = select_sqlstr.replace(
+                    'hex(geom)',
+                    '''(
+                    /* little endian as in comment about Spatialite BLOB Format, point (1: 32 bit little endian is 01000000) */ '0101000000' 
+                    /* || is sqlite string + */ ||
+                    /* x offset 86 but sqlite offset starts from 1 so +1, 16 bytes */ substr(hex(geom), 86+1, 16) 
+                    /* || is sqlite string + */ ||
+                    /* y offset 102 but sqlite offset starts from 1 so +1, 16 bytes */substr(hex(geom), 102+1, 16)
+                    ) as geom'''
+                )
                 #print "dump_parquet select_sqlstr:", select_sqlstr
                 df = pd.read_sql(pq_select, dbcon)
                 #print "df cols:", df.columns
+                added_cols = []
                 if 'geom' in df.columns:  # not all tables have geom column
+                    
+                    #### add lat lon columns as st_x() and st_y() functions not present in geospark at the time of this writing, even if they were - it would be processing overhead for many simple cases we jut needed lat and lon to plot - not for selects or intersects etc
+                    
                     # restore null geom rows that would now appear as '0100000001'
                     to_null_mask = df.geom == '0101000000'
+                    not_null_mask = ~to_null_mask
                     # df.loc[to_null_mask, "geom"] = None - dont set it to null as would cause geospark exception: Caused by: java.lang.NullPointerException\n\tat org.apache.spark.sql.geosparksql.expressions.ST_GeomFromWKB...
+                    
+                    added_cols = ["lat", "lon"]
+                    df["lat"] = np.nan
+                    df["lon"] = np.nan
+
+
+                    df["lon"]= df.loc[not_null_mask, "geom"].str.slice(10, 26).str.decode('hex').apply(lambda val: np.frombuffer(val, dtype=np.float64)[0])  # X
+                    df["lat"] = df.loc[not_null_mask, "geom"].str.slice(26, 42).str.decode('hex').apply(lambda val: np.frombuffer(val, dtype=np.float64)[0])  # Y
+
+                    ''' BELOW IS SLOWER THAN ABOVE PLAIN APPLY
+                    """ we cant use .values.tobytes() directly as it sees the numpy array dtype is object and tries to encode it like below uint64 example:
+In [106]: df.b.str.decode("hex").values
+Out[106]: 
+array(['\x01\x00\x00\x00\x00\x00\x00\x00',
+       '\x02\x00\x00\x00\x00\x00\x00\x00'], dtype=object)
+
+In [107]: df.b.str.decode("hex").values.tobytes()
+Out[107]: '@hl\xca\xbf\x7f\x00\x00\xe0gl\xca\xbf\x7f\x00\x00'
+                    ---
+                    So we will loop to dump each buffer to a bytesio tmp file then later np.frombuffer()
+                    """
+                    tmp_src_vals_dict = {
+                        "lon": df.loc[not_null_mask, "geom"].str.slice(10, 26).str.decode('hex'),  # X
+                        "lat": df.loc[not_null_mask, "geom"].str.slice(26, 42).str.decode('hex'),  # Y
+                    }
+
+                    for key in tmp_src_vals_dict.keys():
+                        with io.BytesIO() as tmp_dumpf:
+                            for val in tmp_src_vals_dict[key]:
+                                tmp_dumpf.write(val)
+                            tmp_dumpf.seek(0)
+                            floats_array = np.frombuffer(tmp_dumpf.read(), dtype=np.float64)
+                            #print "len floats_array:", len(floats_array)
+                            df.loc[not_null_mask, key] = floats_array
+                    '''
+                        
+                    
+                    #print "df['lon']:", df['lon']
+                    #print "df['lat']:", df['lat']
                     df["geom"] = df["geom"].str.decode('hex')
+
                 ##############################
                 
                 for col in df.columns:
+                    if col in added_cols:
+                        continue
                     # set as per local_col_name_to_type_dict
                     col_type_str = local_col_name_to_type_dict[col].lower()
                     col_type = None
@@ -952,7 +1003,7 @@ def create(args, line):
                         col_type = KNOWN_COL_TYPES_LOWER_TO_PD_PARQUET_TYPE_DICT[col_type_str]
                     elif col_type_str.startswith("varchar"):
                         col_type = unicode
-                        
+                    
                     if col_type is None:
                         raise Exception("dump_parquet mode - failed to map col_type for col_type_str: {} of column: {}".format(col_type_str, col))
                     
@@ -978,11 +1029,12 @@ def create(args, line):
                     
                 if len(df):
                     pqfp = table_dump_fp.replace(".csv","_{}.parquet".format(args['log_hash']))
-                    '''
+                    ''' TOO SLOW
+                    # use pyarrow above so we can specify spark flavor instead
                     with open(pqfp, "wb") as fos:
+                        # TODO: do fixed schema column type
                         pq.write_table(pa.Table.from_pandas(df), fos, flavor='spark', compression='gzip')
                     '''
-                    # use pyarrow above so we can specify spark flavor instead
                     df.to_parquet(pqfp, engine='pyarrow', compression='gzip')  # gzip size seems much smaller - like signalling table of /host_shared_dir/logs/2019_12/processed/865184035420781-25_12_2019-16_09_55_processed.azm - gzip size 1.0 MB, snappy 1.8 MB
                 '''
                 let it fail if dump of any failed

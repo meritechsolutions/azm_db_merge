@@ -57,7 +57,9 @@ KNOWN_COL_TYPES_LOWER_TO_PD_PARQUET_TYPE_DICT = {
     "text": unicode,
     "geometry": bytearray,
     "double": np.float64,
-    "float": np.float64,    
+    "real": np.float64,
+    "float": np.float64,
+    "biginteger": np.float64, # EXCEPT special allowed cols like 'log_hash'
     "bigint": np.float64, # EXCEPT special allowed cols like 'log_hash' that will never be null - they will be np.int64 - but for generic numbers can be null so pd df needs it as float64
     "integer": np.float64, # for generic numbers can be null so pd df needs it as float64
     "int": np.float64,  # for generic numbers can be null so pd df needs it as float64
@@ -936,7 +938,14 @@ def create(args, line):
                     ) as geom'''
                 )
                 #print "dump_parquet select_sqlstr:", select_sqlstr
+                print "dump_parquet - read df for table:", table_name
                 df = pd.read_sql(pq_select, dbcon)
+
+                '''
+                if table_name == "log_info":
+                    print "pre conv type log_info df.loc[pd.notnull(df.imsi), 'imsi']:", df.loc[pd.notnull(df.imsi), 'imsi']
+                '''
+
                 #print "df cols:", df.columns
                 added_cols = []
                 if 'geom' in df.columns:  # not all tables have geom column
@@ -946,13 +955,10 @@ def create(args, line):
                     # restore null geom rows that would now appear as '0100000001'
                     to_null_mask = df.geom == '0101000000'
                     not_null_mask = ~to_null_mask
-                    # df.loc[to_null_mask, "geom"] = None - dont set it to null as would cause geospark exception: Caused by: java.lang.NullPointerException\n\tat org.apache.spark.sql.geosparksql.expressions.ST_GeomFromWKB...
-                    
+                    df.loc[to_null_mask, "geom"] = None  # not using geospark now - dont set it to null as would cause geospark exception: Caused by: java.lang.NullPointerException\n\tat org.apache.spark.sql.geosparksql.expressions.ST_GeomFromWKB...                    
                     added_cols = ["lat", "lon"]
                     df["lat"] = np.nan
                     df["lon"] = np.nan
-
-
                     df["lon"]= df.loc[not_null_mask, "geom"].str.slice(10, 26).str.decode('hex').apply(lambda val: np.frombuffer(val, dtype=np.float64)[0])  # X
                     df["lat"] = df.loc[not_null_mask, "geom"].str.slice(26, 42).str.decode('hex').apply(lambda val: np.frombuffer(val, dtype=np.float64)[0])  # Y
 
@@ -1008,25 +1014,33 @@ Out[107]: '@hl\xca\xbf\x7f\x00\x00\xe0gl\xca\xbf\x7f\x00\x00'
                         raise Exception("dump_parquet mode - failed to map col_type for col_type_str: {} of column: {}".format(col_type_str, col))
                     
                     # set type as per coltype
-                    #print "prepare parquet: set col {} to type {} from src type {}".format(col, col_type, col_type_str)
+                    print "prepare parquet: set col {} to type {} from src type {}".format(col, col_type, col_type_str)
                     if col_type == datetime:
                         df[col] = pd.to_datetime(df[col])
                     else:
                         try:
-                            df[col] = df[col].astype(col_type, copy=False)
+                            # null rows getting converted to 'None' string - skipna=True doesnt work although one person said it did https://github.com/pandas-dev/pandas/issues/25353 - in the end they said this matches behavior of numpy so lets convert only notnull to not get null into 'None'
+                            notnull_mask = pd.notnull(df[col])
+                            df.loc[notnull_mask, col] = df.loc[notnull_mask, col].astype(col_type)
                         except Exception as e:
                             print "WARNING: got exception converting df column {} to type: {} - df[col]: {}".format(col, col_type, df[col])
 
                             # try handle/recover for known cases
                             if col.endswith("time"):
                                 print "exception handle col endswith 'time' try pd.to_datetime() on col..."
-                                df[col] = pd.to_datetime(df[col].astype(unicode))
+                                df[col] = pd.to_datetime(df[col].astype(str))
                             elif col_type == np.float64 and (df[col].dtype == object or df[col].dtype == str or df[col].dtype == unicode):
                                 print "excpetion handle retry with <series>.str.strip().replace('', np.nan) next... for case str column and target is np.float64..."
                                 df[col] = df[col].astype(unicode).str.strip().replace('', np.nan).astype(col_type, copy=False)                            
                             else:
                                 raise e  # unknown recover case
-                    
+
+                '''
+                if table_name == "log_info":
+                    print "post conv type log_info df.loc[pd.notnull(df.imsi), 'imsi']:", df.loc[pd.notnull(df.imsi), 'imsi']
+                    exit(0)
+                '''
+
                 if len(df):
                     pqfp = table_dump_fp.replace(".csv","_{}.parquet".format(args['log_hash']))
                     ''' TOO SLOW

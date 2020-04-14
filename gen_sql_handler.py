@@ -1012,16 +1012,29 @@ Out[107]: '@hl\xca\xbf\x7f\x00\x00\xe0gl\xca\xbf\x7f\x00\x00'
                     
                     if col_type is None:
                         raise Exception("dump_parquet mode - failed to map col_type for col_type_str: {} of column: {}".format(col_type_str, col))
+
+                    ############### col_type hard code fix for db cases that have different types in the past
+                    '''
+                    if col.startswith("wcdma_celltype"):
+                        #print "wcdma_celltype: col: {} col_type: {}".format(col, col_type)
+                        col_type = unicode
+                    '''
+                    ####################################
                     
                     # set type as per coltype
-                    print "prepare parquet: set col {} to type {} from src type {}".format(col, col_type, col_type_str)
+                    #print "prepare parquet: set col {} to type {} from src type {}".format(col, col_type, col_type_str)
                     if col_type == datetime:
                         df[col] = pd.to_datetime(df[col])
                     else:
                         try:
-                            # null rows getting converted to 'None' string - skipna=True doesnt work although one person said it did https://github.com/pandas-dev/pandas/issues/25353 - in the end they said this matches behavior of numpy so lets convert only notnull to not get null into 'None'
-                            notnull_mask = pd.notnull(df[col])
-                            df.loc[notnull_mask, col] = df.loc[notnull_mask, col].astype(col_type)
+                            # null rows getting converted to 'None' string - skipna=True doesnt work although one person said it did https://github.com/pandas-dev/pandas/issues/25353 - in the end they said this matches behavior of numpy so lets convert all then set null_mask rows back to None
+                            null_mask = pd.isnull(df[col])
+                            df[col] = df[col].astype(col_type)
+                            df.loc[null_mask, col] = None
+                            '''
+                            if col.startswith("wcdma_celltype"):
+                                print "df[{}]:".format(col), df[col]
+                            '''
                         except Exception as e:
                             print "WARNING: got exception converting df column {} to type: {} - df[col]: {}".format(col, col_type, df[col])
 
@@ -1043,13 +1056,42 @@ Out[107]: '@hl\xca\xbf\x7f\x00\x00\xe0gl\xca\xbf\x7f\x00\x00'
 
                 if len(df):
                     pqfp = table_dump_fp.replace(".csv","_{}.parquet".format(args['log_hash']))
-                    ''' TOO SLOW
-                    # use pyarrow above so we can specify spark flavor instead
-                    with open(pqfp, "wb") as fos:
-                        # TODO: do fixed schema column type
-                        pq.write_table(pa.Table.from_pandas(df), fos, flavor='spark', compression='gzip')
+                    use_pyarrow = False
                     '''
-                    df.to_parquet(pqfp, engine='pyarrow', compression='gzip')  # gzip size seems much smaller - like signalling table of /host_shared_dir/logs/2019_12/processed/865184035420781-25_12_2019-16_09_55_processed.azm - gzip size 1.0 MB, snappy 1.8 MB
+                    TODO try set schema of padf again - but using fastparquet for now as the type is correct but slower than pyarrow (fastparquet 36 vs pyarrow 30 seconds all unmerge + merge)
+                    somehow pyarrow is converting some columns to int although we have set it to unicode in pandas already                    
+kasidit@kasidit-thinkpad:/data/host_shared_dir/minio_data/azm-bucket/2020-04$ parq wcdma_cells_combined_173133109699892998.parquet --schema | grep celltype
+wcdma_celltype_1: BYTE_ARRAY String
+wcdma_celltype_2: BYTE_ARRAY String
+wcdma_celltype_3: BYTE_ARRAY String
+wcdma_celltype_4: BYTE_ARRAY String
+wcdma_celltype_5: INT32 Null
+wcdma_celltype_6: INT32 Null
+wcdma_celltype_7: INT32 Null
+wcdma_celltype_8: INT32 Null
+wcdma_celltype_9: INT32 Null
+wcdma_celltype_10: INT32 Null
+wcdma_celltype_11: INT32 Null
+wcdma_celltype_12: INT32 Null
+wcdma_celltype_13: INT32 Null
+wcdma_celltype_14: INT32 Null
+                    '''
+                    
+                    if use_pyarrow:
+                        # use pyarrow above so we can specify spark flavor instead
+                        with open(pqfp, "wb") as fos:
+                            # TODO: do fixed schema column type
+                            padf = pa.Table.from_pandas(df)         
+                            if table_name == "wcdma_cells_combined":
+                                schema = padf.schema
+                                print "df.wcdma_celltype_5.dtype padf schema:"
+                            pq.write_table(padf, fos, flavor='spark', compression='gzip')
+
+                    else:
+                        engine = 'fastparquet'
+                        df.to_parquet(pqfp, engine=engine, compression='gzip')  # gzip size seems much smaller - like signalling table of /host_shared_dir/logs/2019_12/processed/865184035420781-25_12_2019-16_09_55_processed.azm - gzip size 1.0 MB, snappy 1.8 MB
+
+                    
                 '''
                 let it fail if dump of any failed
                 except:

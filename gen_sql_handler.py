@@ -1023,13 +1023,15 @@ Out[107]: '@hl\xca\xbf\x7f\x00\x00\xe0gl\xca\xbf\x7f\x00\x00'
                     
                     # set type as per coltype
                     #print "prepare parquet: set col {} to type {} from src type {}".format(col, col_type, col_type_str)
-                    if col_type == datetime:
+                    if col == "log_hash":
+                        df[col] = df[col].astype(np.int64, copy=False)
+                    elif col_type == datetime:
                         df[col] = pd.to_datetime(df[col])
                     else:
                         try:
                             # null rows getting converted to 'None' string - skipna=True doesnt work although one person said it did https://github.com/pandas-dev/pandas/issues/25353 - in the end they said this matches behavior of numpy so lets convert all then set null_mask rows back to None
                             null_mask = pd.isnull(df[col])
-                            df[col] = df[col].astype(col_type)
+                            df[col] = df[col].astype(col_type, copy=False)
                             df.loc[null_mask, col] = None
                             '''
                             if col.startswith("wcdma_celltype"):
@@ -1047,12 +1049,7 @@ Out[107]: '@hl\xca\xbf\x7f\x00\x00\xe0gl\xca\xbf\x7f\x00\x00'
                                 df[col] = df[col].astype(unicode).str.strip().replace('', np.nan).astype(col_type, copy=False)                            
                             else:
                                 raise e  # unknown recover case
-
-                '''
-                if table_name == "log_info":
-                    print "post conv type log_info df.loc[pd.notnull(df.imsi), 'imsi']:", df.loc[pd.notnull(df.imsi), 'imsi']
-                    exit(0)
-                '''
+            
 
                 if len(df):
                     pqfp = table_dump_fp.replace(".csv","_{}.parquet".format(args['log_hash']))

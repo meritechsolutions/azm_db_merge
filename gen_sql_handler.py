@@ -1025,8 +1025,18 @@ Out[107]: '@hl\xca\xbf\x7f\x00\x00\xe0gl\xca\xbf\x7f\x00\x00'
                     #print "prepare parquet: set col {} to type {} from src type {}".format(col, col_type, col_type_str)
                     if col == "log_hash":
                         df[col] = df[col].astype(np.int64, copy=False)
-                    elif col_type == datetime:
-                        df[col] = pd.to_datetime(df[col])
+                    elif col.endswith("duration"):
+                        try:
+                            df[col] = df[col].astype(np.float64, copy=False)
+                        except:
+                            print "WARNING: got exception converting df column {} to type float64 - df[col]: {} - retrying strip str first...".format(col, df[col])
+                            df[col] = df[col].astype(str).str.strip().replace("", np.nan).astype(np.float64)
+                    elif col_type == datetime or col.endswith("_time"):
+                        try:
+                            df[col] = pd.to_datetime(df[col])
+                        except:
+                            print "WARNING: got exception converting df column {} to type datetime - df[col]: {} - retrying strip str first...".format(col, df[col])
+                            df[col] = pd.to_datetime(df[col].astype(str).str.strip().replace("", np.nan))
                     else:
                         try:
                             # null rows getting converted to 'None' string - skipna=True doesnt work although one person said it did https://github.com/pandas-dev/pandas/issues/25353 - in the end they said this matches behavior of numpy so lets convert all then set null_mask rows back to None

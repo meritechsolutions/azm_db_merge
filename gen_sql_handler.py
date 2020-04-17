@@ -55,7 +55,7 @@ KNOWN_COL_TYPES_LOWER_TO_PD_PARQUET_TYPE_DICT = {
     "date": datetime,
     "datetime": datetime,
     "text": unicode,
-    "geometry": bytearray,
+    "geometry": str,
     "double": np.float64,
     "real": np.float64,
     "float": np.float64,
@@ -940,6 +940,7 @@ def create(args, line):
                 #print "dump_parquet select_sqlstr:", select_sqlstr
                 print "dump_parquet - read df for table:", table_name
                 df = pd.read_sql(pq_select, dbcon)
+                #print "df['geom']:", df['geom']
 
                 '''
                 if table_name == "log_info":
@@ -955,12 +956,12 @@ def create(args, line):
                     # restore null geom rows that would now appear as '0100000001'
                     to_null_mask = df.geom == '0101000000'
                     not_null_mask = ~to_null_mask
-                    df.loc[to_null_mask, "geom"] = None  # not using geospark now - dont set it to null as would cause geospark exception: Caused by: java.lang.NullPointerException\n\tat org.apache.spark.sql.geosparksql.expressions.ST_GeomFromWKB...                    
+                    # df.loc[to_null_mask, "geom"] = np.nan  # dont set it to null as would cause geospark exception: Caused by: java.lang.NullPointerException\n\tat org.apache.spark.sql.geosparksql.expressions.ST_GeomFromWKB...                    
                     added_cols = ["lat", "lon"]
                     df["lat"] = np.nan
                     df["lon"] = np.nan
-                    df["lon"]= df.loc[not_null_mask, "geom"].str.slice(10, 26).str.decode('hex').apply(lambda val: np.frombuffer(val, dtype=np.float64)[0])  # X
-                    df["lat"] = df.loc[not_null_mask, "geom"].str.slice(26, 42).str.decode('hex').apply(lambda val: np.frombuffer(val, dtype=np.float64)[0])  # Y
+                    df["lon"] = df.loc[not_null_mask, "geom"].str.slice(10, 26).str.decode('hex').apply(lambda val: np.frombuffer(val, dtype=np.float64)[0]).astype(np.float64)  # X
+                    df["lat"] = df.loc[not_null_mask, "geom"].str.slice(26, 42).str.decode('hex').apply(lambda val: np.frombuffer(val, dtype=np.float64)[0]).astype(np.float64)  # Y
 
                     ''' BELOW IS SLOWER THAN ABOVE PLAIN APPLY
                     """ we cant use .values.tobytes() directly as it sees the numpy array dtype is object and tries to encode it like below uint64 example:
@@ -1025,6 +1026,10 @@ Out[107]: '@hl\xca\xbf\x7f\x00\x00\xe0gl\xca\xbf\x7f\x00\x00'
                     #print "prepare parquet: set col {} to type {} from src type {}".format(col, col_type, col_type_str)
                     if col == "log_hash":
                         df[col] = df[col].astype(np.int64, copy=False)
+                    elif col == "geom":
+                        df[col] = df[col].astype(bytearray, copy=False)
+                        #print "df['geom'].dtype:", df['geom'].dtype
+                        #print "df['geom'].head():", df['geom'].head()
                     elif col.endswith("duration"):
                         try:
                             df[col] = df[col].astype(np.float64, copy=False)

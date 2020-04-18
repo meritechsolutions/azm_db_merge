@@ -1100,7 +1100,7 @@ wcdma_celltype_14: INT32 Null
                             pq.write_table(padf, fos, flavor='spark', compression='gzip')
 
                     else:
-                        engine = 'fastparquet'
+                        engine = 'pyarrow'
                         df.to_parquet(pqfp, engine=engine, compression='snappy')  # gzip size seems much smaller - like signalling table of /host_shared_dir/logs/2019_12/processed/865184035420781-25_12_2019-16_09_55_processed.azm - gzip size 1.0 MB, snappy 1.8 MB
 
                     

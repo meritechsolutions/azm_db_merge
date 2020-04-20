@@ -550,7 +550,7 @@ def find_and_conv_spatialite_blob_to_wkb(csv_line):
     return csv_line
 
 
-def create(args, line):
+def create(args, line, parquet_arrow_mode=False, parquet_conv_df_types=True):
     global g_cursor, g_conn
     global g_prev_create_statement_table_name
     global g_prev_create_statement_column_names
@@ -915,7 +915,7 @@ def create(args, line):
             dprint("dump_cmd:", dump_cmd)
 
             # if parquet dump mode do only logs table dump to track already imported
-            if (not args['dump_parquet']) or table_name == "logs":
+            if (not args['dump_parquet']) or parquet_arrow_mode or table_name == "logs":
                 ret = call(
                     dump_cmd,
                     shell=False
@@ -923,7 +923,7 @@ def create(args, line):
             #print "dump_cmd:", dump_cmd
             #print "dump_cmd ret:", ret
 
-        if args['dump_parquet']:
+        if args['dump_parquet'] and (not parquet_arrow_mode):
             with sqlite3.connect(args['file']) as dbcon:
 
                 ###### try convert spatialite geom to wkb
@@ -939,7 +939,9 @@ def create(args, line):
                 )
                 #print "dump_parquet select_sqlstr:", select_sqlstr
                 print "dump_parquet - read df for table:", table_name
+                start_time = datetime.datetime.now()
                 df = pd.read_sql(pq_select, dbcon)
+                print "pd read df duration:", (datetime.datetime.now() - start_time).total_seconds()
                 #print "df['geom']:", df['geom']
 
                 '''
@@ -948,6 +950,7 @@ def create(args, line):
                 '''
 
                 #print "df cols:", df.columns
+                start_time = datetime.datetime.now()
                 added_cols = []
                 if 'geom' in df.columns:  # not all tables have geom column
                     
@@ -995,80 +998,93 @@ Out[107]: '@hl\xca\xbf\x7f\x00\x00\xe0gl\xca\xbf\x7f\x00\x00'
                     #print "df['lat']:", df['lat']
                     df["geom"] = df["geom"].str.decode('hex')
 
+                print "geom to lat lon cols duration:", (datetime.datetime.now() - start_time).total_seconds()
+
                 ##############################
-                
-                for col in df.columns:
-                    if col in added_cols:
-                        continue
-                    # set as per local_col_name_to_type_dict
-                    col_type_str = local_col_name_to_type_dict[col].lower()
-                    col_type = None
 
-                    if col == "log_hash":
-                        col_type = np.int64
-                    elif col_type_str in KNOWN_COL_TYPES_LOWER_TO_PD_PARQUET_TYPE_DICT:
-                        col_type = KNOWN_COL_TYPES_LOWER_TO_PD_PARQUET_TYPE_DICT[col_type_str]
-                    elif col_type_str.startswith("varchar"):
-                        col_type = unicode
+                if parquet_conv_df_types:
+                    start_time = datetime.datetime.now()
+                    for col in df.columns:
+                        if col in added_cols:
+                            continue
+                        # set as per local_col_name_to_type_dict
+                        col_type_str = local_col_name_to_type_dict[col].lower()
+                        col_type = None
+
+                        if col == "log_hash":
+                            col_type = np.int64
+                        elif col.endswith("duration"):
+                            col_type = np.float64
+                        elif col_type_str in KNOWN_COL_TYPES_LOWER_TO_PD_PARQUET_TYPE_DICT:
+                            col_type = KNOWN_COL_TYPES_LOWER_TO_PD_PARQUET_TYPE_DICT[col_type_str]
+                        elif col_type_str.startswith("varchar"):
+                            col_type = unicode
+
+                        if col_type is None:
+                            raise Exception("dump_parquet mode - failed to map col_type for col_type_str: {} of column: {}".format(col_type_str, col))
+
+
+                        ############### col_type hard code fix for db cases that have different types in the past
+                        '''
+                        if col.startswith("wcdma_celltype"):
+                            #print "wcdma_celltype: col: {} col_type: {}".format(col, col_type)
+                            col_type = unicode
+                        '''
+                        ####################################
+
+                        #print "col: {} df[col].dtype: {} col_type: {}".format(col, df[col].dtype, col_type)
+
+                        # set type as per coltype
+                        #print "prepare parquet: set col {} to type {} from src type {}".format(col, col_type, col_type_str)
+                        if col == "log_hash":
+                            df[col] = df[col].astype(np.int64, copy=False)
+                        elif col == "geom":
+                            df[col] = df[col].astype(bytearray, copy=False)
+                            #print "df['geom'].dtype:", df['geom'].dtype
+                            #print "df['geom'].head():", df['geom'].head()
+                        elif col_type == datetime or col.endswith("_time"):
+                            try:
+                                df[col] = pd.to_datetime(df[col])
+                            except:
+                                print "WARNING: got exception converting df column {} to type datetime - df[col]: {} - retrying strip str first...".format(col, df[col])
+                                df[col] = pd.to_datetime(df[col].astype(str).str.strip().replace("", np.nan))
+                        elif pd.api.types.is_numeric_dtype(df[col].dtype) and col_type == np.float64:
+                            # print "already numeric dtype matching pandas targt numeric type - no need to convert..."
+                            continue
+                        else:
+                            try:
+                                # null rows getting converted to 'None' string - skipna=True doesnt work although one person said it did https://github.com/pandas-dev/pandas/issues/25353 - in the end they said this matches behavior of numpy so lets convert all then set null_mask rows back to None
+                                null_mask = pd.isnull(df[col])
+                                df[col] = df[col].astype(col_type, copy=False)
+                                df.loc[null_mask, col] = None
+                                '''
+                                if col.startswith("wcdma_celltype"):
+                                    print "df[{}]:".format(col), df[col]
+                                '''
+                            except Exception as e:
+                                print "WARNING: got exception converting df column {} to type: {} - df[col]: {} - trying auto recovery...".format(col, col_type, df[col])
+
+                                # try handle/recover for known cases
+                                if col.endswith("time"):
+                                    print "exception handle col endswith 'time' try pd.to_datetime() on col..."
+                                    df[col] = pd.to_datetime(df[col].astype(str))
+                                elif col_type == np.float64 and (df[col].dtype == object or df[col].dtype == str or df[col].dtype == unicode):
+                                    print "excpetion handle retry with <series>.str.strip().replace('', np.nan) next... for case str column and target is np.float64..."
+                                    null_mask = pd.isnull(df[col])
+                                    df.loc[~null_mask, col] = df.loc[~null_mask, col].astype(unicode).str.strip().replace('', np.nan).astype(col_type, copy=False)
+                                    df.loc[null_mask, col] = None                                
+                                    df[col] = df[col].astype(col_type, copy=False)                            
+                                else:
+                                    raise e  # unknown recover case
+
+                    print "convert types duration:", (datetime.datetime.now() - start_time).total_seconds()
                     
-                    if col_type is None:
-                        raise Exception("dump_parquet mode - failed to map col_type for col_type_str: {} of column: {}".format(col_type_str, col))
-
-                    ############### col_type hard code fix for db cases that have different types in the past
-                    '''
-                    if col.startswith("wcdma_celltype"):
-                        #print "wcdma_celltype: col: {} col_type: {}".format(col, col_type)
-                        col_type = unicode
-                    '''
-                    ####################################
-                    
-                    # set type as per coltype
-                    #print "prepare parquet: set col {} to type {} from src type {}".format(col, col_type, col_type_str)
-                    if col == "log_hash":
-                        df[col] = df[col].astype(np.int64, copy=False)
-                    elif col == "geom":
-                        df[col] = df[col].astype(bytearray, copy=False)
-                        #print "df['geom'].dtype:", df['geom'].dtype
-                        #print "df['geom'].head():", df['geom'].head()
-                    elif col.endswith("duration"):
-                        try:
-                            df[col] = df[col].astype(np.float64, copy=False)
-                        except:
-                            print "WARNING: got exception converting df column {} to type float64 - df[col]: {} - retrying strip str first...".format(col, df[col])
-                            df[col] = df[col].astype(str).str.strip().replace("", np.nan).astype(np.float64)
-                    elif col_type == datetime or col.endswith("_time"):
-                        try:
-                            df[col] = pd.to_datetime(df[col])
-                        except:
-                            print "WARNING: got exception converting df column {} to type datetime - df[col]: {} - retrying strip str first...".format(col, df[col])
-                            df[col] = pd.to_datetime(df[col].astype(str).str.strip().replace("", np.nan))
-                    else:
-                        try:
-                            # null rows getting converted to 'None' string - skipna=True doesnt work although one person said it did https://github.com/pandas-dev/pandas/issues/25353 - in the end they said this matches behavior of numpy so lets convert all then set null_mask rows back to None
-                            null_mask = pd.isnull(df[col])
-                            df[col] = df[col].astype(col_type, copy=False)
-                            df.loc[null_mask, col] = None
-                            '''
-                            if col.startswith("wcdma_celltype"):
-                                print "df[{}]:".format(col), df[col]
-                            '''
-                        except Exception as e:
-                            print "WARNING: got exception converting df column {} to type: {} - df[col]: {}".format(col, col_type, df[col])
-
-                            # try handle/recover for known cases
-                            if col.endswith("time"):
-                                print "exception handle col endswith 'time' try pd.to_datetime() on col..."
-                                df[col] = pd.to_datetime(df[col].astype(str))
-                            elif col_type == np.float64 and (df[col].dtype == object or df[col].dtype == str or df[col].dtype == unicode):
-                                print "excpetion handle retry with <series>.str.strip().replace('', np.nan) next... for case str column and target is np.float64..."
-                                df[col] = df[col].astype(unicode).str.strip().replace('', np.nan).astype(col_type, copy=False)                            
-                            else:
-                                raise e  # unknown recover case
-            
 
                 if len(df):
+
+                    start_time = datetime.datetime.now()                    
+                    
                     pqfp = table_dump_fp.replace(".csv","_{}.parquet".format(args['log_hash']))
-                    use_pyarrow = False
                     '''
                     TODO try set schema of padf again - but using fastparquet for now as the type is correct but slower than pyarrow (fastparquet 36 vs pyarrow 30 seconds all unmerge + merge)
                     somehow pyarrow is converting some columns to int although we have set it to unicode in pandas already                    
@@ -1089,7 +1105,7 @@ wcdma_celltype_13: INT32 Null
 wcdma_celltype_14: INT32 Null
                     '''
                     
-                    if use_pyarrow:
+                    if parquet_arrow_mode:
                         # use pyarrow above so we can specify spark flavor instead
                         with open(pqfp, "wb") as fos:
                             # TODO: do fixed schema column type
@@ -1101,9 +1117,10 @@ wcdma_celltype_14: INT32 Null
 
                     else:
                         engine = 'fastparquet'
+                        print "pd.to_parquet mode - engine: {}".format(engine)
                         df.to_parquet(pqfp, engine=engine, compression='gzip')  # gzip size seems much smaller - like signalling table of /host_shared_dir/logs/2019_12/processed/865184035420781-25_12_2019-16_09_55_processed.azm - gzip size 1.0 MB, snappy 1.8 MB
 
-                    
+                    print "parquet dump df duration:", (datetime.datetime.now() - start_time).total_seconds()
                 '''
                 let it fail if dump of any failed
                 except:
@@ -1196,8 +1213,18 @@ wcdma_celltype_14: INT32 Null
                 dprint("insert this table:geom into geometry_columns exception: "+estr)
                 pass
             """
+
+        # read csv to arrow, set types, dump to parqet - return True, but if log_table dont return - let it enter pg too...
+        if parquet_arrow_mode:
+
             
-        
+            # if log_table dont return - let it enter pg too...
+            if table_name == "logs":
+                pass
+            else:
+                return True
+
+
         # create fmt format file for that table
         """        
         generate format file:

@@ -20,10 +20,12 @@ import pandas as pd
 import numpy as np
 import sqlite3
 import pyarrow as pa
+from pyarrow import csv
 import pyarrow.parquet as pq
 import io
 import struct
 
+WKB_POINT_LAT_LON_STR_LEN = 50
 # global vars
 g_is_postgre = False
 g_is_ms = False
@@ -48,6 +50,28 @@ anymore until we do commit() after each execute for all tables
 
 # TODO: set/use as global - from args from azm_db_merge - where .db is extracted from azm    
 g_dir_processing_azm = None
+
+pa_type_replace_dict = {
+    "text": pa.string(),
+
+    "bigint unique": pa.int64(),
+    "bigint": pa.int64(),
+    "biginteger": pa.int64(),    
+    "int": pa.int32(),
+    "integer": pa.int32(),
+    "short": pa.int16(),
+
+    "double": pa.float64(),
+    "real": pa.float64(),
+    "float": pa.float64(),    
+
+    "geometry": pa.binary(),
+
+    # because pyarrow is somehow not taking vals like this so use strings first: In CSV column #0: CSV conversion error to timestamp[ms]: invalid value '2018-07-24 09:59:48.218'
+    "timestamp": pa.string(),
+    "datetime": pa.string(),
+}
+
 
 KNOWN_COL_TYPES_LOWER_TO_PD_PARQUET_TYPE_DICT = {
     "timestamp": datetime,
@@ -550,7 +574,7 @@ def find_and_conv_spatialite_blob_to_wkb(csv_line):
     return csv_line
 
 
-def create(args, line, parquet_arrow_mode=False, parquet_conv_df_types=True):
+def create(args, line, parquet_arrow_mode=True, parquet_conv_df_types=True):
     global g_cursor, g_conn
     global g_prev_create_statement_table_name
     global g_prev_create_statement_column_names
@@ -612,6 +636,7 @@ def create(args, line, parquet_arrow_mode=False, parquet_conv_df_types=True):
     ls = ls.split(",")
     
     # parse column names and keep for insert commands
+    local_column_dict = {}
     local_columns = []
     local_column_names = []    
     for lsp in ls:
@@ -630,6 +655,7 @@ def create(args, line, parquet_arrow_mode=False, parquet_conv_df_types=True):
         """
             
         if omit_col == False:
+            local_column_dict[col_name] = col_type
             local_columns.append([col_name, col_type])
             local_column_names.append(col_name)
     
@@ -693,6 +719,8 @@ def create(args, line, parquet_arrow_mode=False, parquet_conv_df_types=True):
             ret = None
             # use with for auto rollback() on g_conn on expected fails like already exists
             with g_conn as c:
+                sqlstr = sqlstr.replace('" bigintEGER,', '" bigint,')
+                print "exec:", sqlstr
                 ret = g_cursor.execute(sqlstr)
             # commit now otherwise COPY might not see partitions
             g_conn.commit()
@@ -915,13 +943,49 @@ def create(args, line, parquet_arrow_mode=False, parquet_conv_df_types=True):
             dprint("dump_cmd:", dump_cmd)
 
             # if parquet dump mode do only logs table dump to track already imported
-            if (not args['dump_parquet']) or parquet_arrow_mode or table_name == "logs":
+            if True:#(not args['dump_parquet']) or parquet_arrow_mode or table_name == "logs":
                 ret = call(
                     dump_cmd,
                     shell=False
                 )
             #print "dump_cmd:", dump_cmd
             #print "dump_cmd ret:", ret
+
+        table_dump_fp_adj = table_dump_fp + "_adj.csv"        
+
+        if True:
+            with open(table_dump_fp,"rb") as of:
+                with open(table_dump_fp_adj,"wb") as nf:  # wb required for windows so that \n is 0x0A - otherwise \n will be 0x0D 0x0A and doest go with our fmt file and only 1 row will be inserted per table csv in bulk inserts...
+                    while True:
+                        ofl = of.readline()
+                        if g_is_postgre:
+                            ofl = ofl.replace(',""',',')
+
+                        """ no need to check this, only old stale thread versions would have these cases and will have other cases too so let it crash in all those cases
+                        if ofl.strip() == all_cols_null_line:
+                            continue
+                        """                   
+
+                        ofl = find_and_conv_spatialite_blob_to_wkb(ofl)
+
+                        if ofl == "":
+                            break
+
+                        nf.write(ofl)
+                    
+        table_dump_fp = table_dump_fp_adj
+
+        dprint("dump table: "+table_name+" for bulk insert ret: "+str(ret))
+        
+        if (ret != 0):
+            print "WARNING: dump table: "+table_name+" for bulk insert failed - likely sqlite db file error like: database disk image is malformed. In many cases, data is still correct/complete so continue."
+            
+            
+        if (os.stat(table_dump_fp).st_size == 0):
+            print "this table is empty..."
+            return True
+        
+        # if control reaches here then the table is not empty
 
         if args['dump_parquet'] and (not parquet_arrow_mode):
             with sqlite3.connect(args['file']) as dbcon:
@@ -941,6 +1005,7 @@ def create(args, line, parquet_arrow_mode=False, parquet_conv_df_types=True):
                 print "dump_parquet - read df for table:", table_name
                 start_time = datetime.datetime.now()
                 df = pd.read_sql(pq_select, dbcon)
+                #df = pd.read_csv(table_dump_fp, header=0, names=local_column_names)
                 print "pd read df duration:", (datetime.datetime.now() - start_time).total_seconds()
                 #print "df['geom']:", df['geom']
 
@@ -1132,95 +1197,96 @@ wcdma_celltype_14: INT32 Null
                 if not table_name == "logs":
                     return True  # dont do further csv formatting as we are doing dump_parquet mode -  but allow logs table insert to track already imported state
 
+                
+        ################## read csv to arrow, set types, dump to parqet - return True, but if log_table dont return - let it enter pg too...
+        # yes, arrow read from csv, convert to pd to mod datetime col and add lat lon is faster than pd.read_sql() and converting fields and to parquet
+        if args['dump_parquet'] and parquet_arrow_mode:
+            #print "local_column_names:", local_column_names            
+            pa_column_types = local_column_dict.copy()
+            for col in pa_column_types.keys():
+                sqlite_col_type = pa_column_types[col].lower()
+                if sqlite_col_type in pa_type_replace_dict.keys():
+                    pa_column_types[col] = pa_type_replace_dict[sqlite_col_type]
+                elif sqlite_col_type.startswith("varchar"):
+                    pa_column_types[col] = "string"
 
-        table_dump_fp_adj = table_dump_fp + "_adj.csv"
-        
-        ''' now we already add where time is null - no need to check this - dont add lines where all cols are null - bug in older azm files causing COPY to fail...
-        all_cols_null_line = ""
-        for ci in range(len(local_columns)):
-            if ci != 0:
-                all_cols_null_line += ","
-        print "all_cols_null_line:", all_cols_null_line
-        '''
+                # special cases
+                if col.endswith("time"):
+                    # because pyarrow is somehow not taking vals like this so use strings first: In CSV column #0: CSV conversion error to timestamp[ms]: invalid value '2018-07-24 09:59:48.218'
+                    pa_column_types[col] = pa.string()
+                elif col.endswith("duration"):
+                    pa_column_types[col] = pa.float64()
 
-        pd_csvadj_success = False
-
-        # trying preliminary version (without geom conv yet) of pandas proved that it was slower than python file looping and also failing at events table so disable for now....
-        """
-        if g_is_postgre:
-            # try use pandas to adjust csv instead of looping through file...
-            try:
-                import pandas as pd
-                df = pd.read_csv(table_dump_fp, header=None, names=local_column_names)
-                print "df.columns:", df.columns
-                print "pd table_dump_fp df len:", len(df)
-                df.geom = None
-                df = df.dropna(how='all')
-                df.to_csv(table_dump_fp_adj, header=None)
-                pd_csvadj_success = True
-            except:
-                type_, value_, traceback_ = sys.exc_info()
-                exstr = str(traceback.format_exception(type_, value_, traceback_))
-                print "pd_csvadj exception:", exstr
-
-        print "pd_csvadj_success:", pd_csvadj_success
-        """
-        
-        if not pd_csvadj_success:
-            with open(table_dump_fp,"rb") as of:
-                with open(table_dump_fp_adj,"wb") as nf:  # wb required for windows so that \n is 0x0A - otherwise \n will be 0x0D 0x0A and doest go with our fmt file and only 1 row will be inserted per table csv in bulk inserts...
-                    while True:
-                        ofl = of.readline()
-                        if g_is_postgre:
-                            ofl = ofl.replace(',""',',')
-
-                        """ no need to check this, only old stale thread versions would have these cases and will have other cases too so let it crash in all those cases
-                        if ofl.strip() == all_cols_null_line:
-                            continue
-                        """                   
-
-                        ofl = find_and_conv_spatialite_blob_to_wkb(ofl)
-
-                        if ofl == "":
-                            break
-
-                        nf.write(ofl)
-                    
-        table_dump_fp = table_dump_fp_adj
-
-        dprint("dump table: "+table_name+" for bulk insert ret: "+str(ret))
-        
-        if (ret != 0):
-            print "WARNING: dump table: "+table_name+" for bulk insert failed - likely sqlite db file error like: database disk image is malformed. In many cases, data is still correct/complete so continue."
+            #print "pa_column_types:", pa_column_types
+            # adj types for pa
             
+            padf = csv.read_csv(
+                table_dump_fp,
+                read_options=csv.ReadOptions(
+                    column_names=local_column_names,
+                    autogenerate_column_names=False,
+                ),
+                parse_options=csv.ParseOptions(
+                    newlines_in_values=True
+                ),
+                convert_options=csv.ConvertOptions(
+                    column_types=pa_column_types,
+                    #null_values=None,
+                    #strings_can_be_null=None,
+                )
+                
+            )
+
+            # convert to pandas to get the datetime right then convert back - because pyarrow is somehow not taking vals like this so use strings first: In CSV column #0: CSV conversion error to timestamp[ms]: invalid value '2018-07-24 09:59:48.218'
+            # TODO: convert only geom and time columns instead of whole df like here...
+            pddf = padf.to_pandas()
+
+            # add lat, lon
+            #print "pddf.geom:", pddf.geom
+            '''
+            # see description in find_and_conv_spatialite_blob_to_wkb(csv_line) comments... "so our class is pont..."
+            01       01000020 E6100000    2346747441EF5240F395FE2D1AE8...
+            [endian] [point]  [4326 type] [point lon, lat]
+             
+
+            '''
+            has_geom_col = "geom" in pddf.columns
+            if has_geom_col:
+                pddf["lon"] = pddf.geom.apply(lambda x: None if (x is None or len(x) != WKB_POINT_LAT_LON_STR_LEN) else np.frombuffer(x[18:18+16].decode("hex"), dtype=np.float64)).astype(np.float64)  # X
+                pddf["lat"] = pddf.geom.apply(lambda x: None if (x is None or len(x) != WKB_POINT_LAT_LON_STR_LEN) else np.frombuffer(x[18+16:18+16+16].decode("hex"), dtype=np.float64)).astype(np.float64)  # Y
             
-        if (os.stat(table_dump_fp).st_size == 0):
-            print "this table is empty..."
-            return True
-        
-        # if control reaches here then the table is not empty
-        
-        if g_is_ms and is_contains_geom_col:
-            # add this table:geom to 'geometry_columns' (table_name was set to UNIQUE so it will fail if already exists...
-            """ somehow not working - let QGIS detect automatically itself for now...
-            try:
-                insert_geomcol_sqlstr = "INSERT INTO \"geometry_columns\" VALUES('azq','dbo','{}','geom',NULL,4326,'POINT');".format(table_name)
-                dprint("insert_geomcol_sqlstr: "+insert_geomcol_sqlstr)
-                ret = g_cursor.execute(insert_geomcol_sqlstr)
-                print "insert this table:geom into geometry_columns done"
-            except Exception as e:
-                estr = str(e)
-                dprint("insert this table:geom into geometry_columns exception: "+estr)
-                pass
-            """
+            for col in pddf.columns:
+                if col.endswith("time"):
+                    pddf[col] = pd.to_datetime(pddf[col])
+            cur_schema = padf.schema
+            mod_fields = []
+            for field in cur_schema:
+                if field.name == "time_ms":
+                    continue  # rm this unused col
+                #print "field:", field
+                if field.name.endswith("time"):
+                    mod_fields.append(pa.field(field.name, pa.timestamp('ms')))
+                else:
+                    mod_fields.append(field)
 
-        # read csv to arrow, set types, dump to parqet - return True, but if log_table dont return - let it enter pg too...
-        if parquet_arrow_mode:
+            if has_geom_col:
+                # add new cols
+                mod_fields.append(pa.field("lon", pa.float64()))
+                mod_fields.append(pa.field("lat", pa.float64()))
+            
+            mod_schema = pa.schema(mod_fields)
+            padf = pa.Table.from_pandas(pddf, schema=mod_schema, preserve_index=False)
+            #print "padf.schema:\n", padf.schema
+            pqfp = table_dump_fp.replace(".csv","_{}.parquet".format(args['log_hash']))
+            print "padf len:", len(padf)
 
+            with open(pqfp, "wb") as fos:
+                # TODO: do fixed schema column type          
+                pq.write_table(padf, fos, flavor='spark', compression='gzip')
             
             # if log_table dont return - let it enter pg too...
             if table_name == "logs":
-                pass
+                pass  # import logs table to pg too
             else:
                 return True
 

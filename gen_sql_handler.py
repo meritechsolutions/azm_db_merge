@@ -972,7 +972,9 @@ def create(args, line, parquet_arrow_mode=True, parquet_conv_df_types=True):
                             break
 
                         nf.write(ofl)
-                    
+
+        table_dump_fp_ori = table_dump_fp
+        pqfp = table_dump_fp_ori.replace(".csv","_{}.parquet".format(args['log_hash']))
         table_dump_fp = table_dump_fp_adj
 
         dprint("dump table: "+table_name+" for bulk insert ret: "+str(ret))
@@ -1149,7 +1151,7 @@ Out[107]: '@hl\xca\xbf\x7f\x00\x00\xe0gl\xca\xbf\x7f\x00\x00'
 
                     start_time = datetime.datetime.now()                    
                     
-                    pqfp = table_dump_fp.replace(".csv","_{}.parquet".format(args['log_hash']))
+                    
                     '''
                     TODO try set schema of padf again - but using fastparquet for now as the type is correct but slower than pyarrow (fastparquet 36 vs pyarrow 30 seconds all unmerge + merge)
                     somehow pyarrow is converting some columns to int although we have set it to unicode in pandas already                    
@@ -1277,12 +1279,14 @@ wcdma_celltype_14: INT32 Null
             mod_schema = pa.schema(mod_fields)
             padf = pa.Table.from_pandas(pddf, schema=mod_schema, preserve_index=False)
             #print "padf.schema:\n", padf.schema
-            pqfp = table_dump_fp.replace(".csv","_{}.parquet".format(args['log_hash']))
+            
             print "padf len:", len(padf)
 
             with open(pqfp, "wb") as fos:
                 # TODO: do fixed schema column type          
                 pq.write_table(padf, fos, flavor='spark', compression='gzip')
+            assert os.path.isfile(pqfp)
+            print "wrote pqfp:", pqfp
             
             # if log_table dont return - let it enter pg too...
             if table_name == "logs":

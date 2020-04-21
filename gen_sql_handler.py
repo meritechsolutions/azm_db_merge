@@ -1307,8 +1307,11 @@ wcdma_celltype_14: INT32 Null
                 direction_sr.loc[uplink_mask] = 1
                 #print "direction_sr.dtype", direction_sr.dtype
                 padf = padf.append_column(
-                    pa.field("direction", pa.uint8()),
-                    pa.Array.from_pandas(direction_sr.astype(np.uint8))
+                    # org.apache.spark.sql.AnalysisException: Parquet type not supported: INT32 (UINT_8);
+                    # org.apache.spark.sql.AnalysisException: Parquet type not supported: INT32 (UINT_16);
+                    # so had to use uint32
+                    pa.field("direction", pa.uint32()),
+                    pa.Array.from_pandas(direction_sr.astype(np.uint32))
                 )
                 
                 #print "symbol_sr:", symbol_sr

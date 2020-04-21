@@ -26,8 +26,6 @@ import io
 import struct
 
 WKB_POINT_LAT_LON_BYTES_LEN = 25
-LAT_COL_INSERT_INDEX = 7
-LON_COL_INSERT_INDEX = LAT_COL_INSERT_INDEX+1
 # global vars
 g_is_postgre = False
 g_is_ms = False
@@ -1325,8 +1323,9 @@ wcdma_celltype_14: INT32 Null
                 print "converting field index {} name {} to datetime...".format(index, field)
                 # convert
                 converted_sr = pd.to_datetime(padf.column(index).to_pandas())
-                #print "converted_sr head:", converted_sr.head()
+                print "converted_sr head:", converted_sr.head()
                 # assign it back
+                print "padf.schema:\n", padf.schema
                 padf = padf.set_column(index, field, pa.Array.from_pandas(converted_sr))
 
 
@@ -1340,12 +1339,12 @@ wcdma_celltype_14: INT32 Null
                 #print 'lat_sr', lat_sr.head()
                 
                 ##### assign all three back to padf
-                ## replace geom with newly converted to binary geom_sr
+                ## replace geom with newly converted to binary geom_sr                
                 padf = padf.set_column(geom_field_index, pa.field("geom", "binary"), pa.Array.from_pandas(geom_sr))
 
                 ## insert lat, lon
-                padf = padf.add_column(LAT_COL_INSERT_INDEX, pa.field("lat", pa.float64()), pa.Array.from_pandas(lat_sr))
-                padf = padf.add_column(LON_COL_INSERT_INDEX, pa.field("lon", pa.float64()), pa.Array.from_pandas(lon_sr))
+                padf = padf.add_column(geom_field_index+1, pa.field("lat", pa.float64()), pa.Array.from_pandas(lat_sr))
+                padf = padf.add_column(geom_field_index+2, pa.field("lon", pa.float64()), pa.Array.from_pandas(lon_sr))
 
             # finally drop 'time_ms' legacy column used long ago in mysql where it didnt have milliseconds - not used anymore
             for drop_index in field_index_to_drop:

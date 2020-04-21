@@ -1324,9 +1324,9 @@ wcdma_celltype_14: INT32 Null
                 print "converting field index {} name {} to datetime...".format(index, field)
                 # convert
                 converted_sr = pd.to_datetime(padf.column(index).to_pandas())
-                print "converted_sr head:", converted_sr.head()
+                #print "converted_sr head:", converted_sr.head()
                 # assign it back
-                print "padf.schema:\n", padf.schema
+                # print "padf.schema:\n", padf.schema
                 padf = padf.set_column(index, field, pa.Array.from_pandas(converted_sr))
 
 

@@ -1302,9 +1302,15 @@ wcdma_celltype_14: INT32 Null
                 # create int column 'direction' for faster queries instead of the string 'symbol' column
                 assert signalling_symbol_column_index is not None
                 symbol_sr = padf.column(signalling_symbol_column_index).to_pandas().astype(str, copy=False)
-                direction_sr = pd.Series(np.zeros(len(symbol_sr),dtype=np.uint8))  # set to 0 means downlink first
+                direction_sr = pd.Series(np.zeros(len(symbol_sr), dtype=np.uint8))
                 uplink_mask = symbol_sr == "send"
                 direction_sr.loc[uplink_mask] = 1
+                #print "direction_sr.dtype", direction_sr.dtype
+                padf = padf.append_column(
+                    pa.field("direction", pa.uint8()),
+                    pa.Array.from_pandas(direction_sr.astype(np.uint8))
+                )
+                
                 #print "symbol_sr:", symbol_sr
                 #print "direction_sr:", direction_sr
 

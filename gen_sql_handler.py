@@ -1220,6 +1220,7 @@ wcdma_celltype_14: INT32 Null
                     pa_column_types[col] = pa.float64()
 
             #print "pa_column_types:", pa_column_types
+            #print "local_column_names:", local_column_names
             # adj types for pa
             
             padf = csv.read_csv(

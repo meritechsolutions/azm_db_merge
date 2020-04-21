@@ -25,7 +25,9 @@ import pyarrow.parquet as pq
 import io
 import struct
 
-WKB_POINT_LAT_LON_STR_LEN = 50
+WKB_POINT_LAT_LON_BYTES_LEN = 25
+LAT_COL_INSERT_INDEX = 7
+LON_COL_INSERT_INDEX = LAT_COL_INSERT_INDEX+1
 # global vars
 g_is_postgre = False
 g_is_ms = False
@@ -1132,7 +1134,7 @@ Out[107]: '@hl\xca\xbf\x7f\x00\x00\xe0gl\xca\xbf\x7f\x00\x00'
                                 print "WARNING: got exception converting df column {} to type: {} - df[col]: {} - trying auto recovery...".format(col, col_type, df[col])
 
                                 # try handle/recover for known cases
-                                if col.endswith("time"):
+                                if is_datetime_col(col):
                                     print "exception handle col endswith 'time' try pd.to_datetime() on col..."
                                     df[col] = pd.to_datetime(df[col].astype(str))
                                 elif col_type == np.float64 and (df[col].dtype == object or df[col].dtype == str or df[col].dtype == unicode):
@@ -1213,7 +1215,7 @@ wcdma_celltype_14: INT32 Null
                     pa_column_types[col] = "string"
 
                 # special cases
-                if col.endswith("time"):
+                if is_datetime_col(col):
                     # because pyarrow is somehow not taking vals like this so use strings first: In CSV column #0: CSV conversion error to timestamp[ms]: invalid value '2018-07-24 09:59:48.218'
                     pa_column_types[col] = pa.string()
                 elif col.endswith("duration"):
@@ -1239,51 +1241,111 @@ wcdma_celltype_14: INT32 Null
                 
             )
 
-            # convert to pandas to get the datetime right then convert back - because pyarrow is somehow not taking vals like this so use strings first: In CSV column #0: CSV conversion error to timestamp[ms]: invalid value '2018-07-24 09:59:48.218'
-            # TODO: convert only geom and time columns instead of whole df like here...
+            '''
+            ###### Older version to convert whole padf to pddf ---
+
             pddf = padf.to_pandas()
 
             # add lat, lon
             #print "pddf.geom:", pddf.geom
-            '''
+            """
             # see description in find_and_conv_spatialite_blob_to_wkb(csv_line) comments... "so our class is pont..."
             01       01000020 E6100000    2346747441EF5240F395FE2D1AE8...
-            [endian] [point]  [4326 type] [point lon, lat]
-             
+            [endian] [point]  [4326 type] [point lon, lat]             
 
-            '''
+            """
             has_geom_col = "geom" in pddf.columns
             if has_geom_col:
-                pddf["lon"] = pddf.geom.apply(lambda x: None if (x is None or len(x) != WKB_POINT_LAT_LON_STR_LEN) else np.frombuffer(x[18:18+16].decode("hex"), dtype=np.float64)).astype(np.float64)  # X
-                pddf["lat"] = pddf.geom.apply(lambda x: None if (x is None or len(x) != WKB_POINT_LAT_LON_STR_LEN) else np.frombuffer(x[18+16:18+16+16].decode("hex"), dtype=np.float64)).astype(np.float64)  # Y
+                pddf["geom"] = pddf["geom"].str.decode("hex")
+                #print 'pddf["geom"].head():', pddf["geom"].head()
+                pddf["lon"] = pddf.geom.apply(lambda x: None if (x is None or len(x) != WKB_POINT_LAT_LON_BYTES_LEN) else np.frombuffer(x[9:9+8], dtype=np.float64)).astype(np.float64)  # X                                
+                pddf["lat"] = pddf.geom.apply(lambda x: None if (x is None or len(x) != WKB_POINT_LAT_LON_BYTES_LEN) else np.frombuffer(x[9+8:9+8+8], dtype=np.float64)).astype(np.float64)  # Y
+                #print 'pddf["lon"]', pddf["lon"].head()
+                #print 'pddf["lat"]', pddf["lat"].head()
             
             for col in pddf.columns:
-                if col.endswith("time"):
+                if is_datetime_col(col):
+                    #print "pd.to_datetime: col: {} head:".format(col), pddf[col].head()
                     pddf[col] = pd.to_datetime(pddf[col])
+            '''
+                    
             cur_schema = padf.schema
-            mod_fields = []
+            field_indexes_need_pd_datetime = []
+            fields_need_pd_datetime = []
+            field_index_to_drop = []
+            has_geom_field = False
+            geom_field = None
+            geom_field_index = None
+            field_index = -1
+            signalling_symbol_column_index = None
             for field in cur_schema:
+                field_index += 1
                 if field.name == "time_ms":
-                    continue  # rm this unused col
-                #print "field:", field
-                if field.name.endswith("time"):
-                    mod_fields.append(pa.field(field.name, pa.timestamp('ms')))
-                else:
-                    mod_fields.append(field)
+                    field_index_to_drop.append(field_index)
+                    continue
 
-            if has_geom_col:
-                # add new cols
-                mod_fields.append(pa.field("lon", pa.float64()))
-                mod_fields.append(pa.field("lat", pa.float64()))
-            
-            mod_schema = pa.schema(mod_fields)
-            padf = pa.Table.from_pandas(pddf, schema=mod_schema, preserve_index=False)
-            #print "padf.schema:\n", padf.schema
-            
+                if table_name == "signalling" and field.name == "symbol":
+                    signalling_symbol_column_index = field_index
+
+                # check if has geom
+                if field.name == "geom":
+                    has_geom_field = True
+                    geom_field_index = field_index
+
+                # change type of field in new schema to timestamp if required
+                if is_datetime_col(field.name):
+                    fields_need_pd_datetime.append(pa.field(field.name, pa.timestamp('ns')))
+                    field_indexes_need_pd_datetime.append(field_index)
+
+            ##### special mods for each table
+            if table_name == "signalling":
+                # create int column 'direction' for faster queries instead of the string 'symbol' column
+                assert signalling_symbol_column_index is not None
+                symbol_sr = padf.column(signalling_symbol_column_index).to_pandas().astype(str, copy=False)
+                direction_sr = pd.Series(np.zeros(len(symbol_sr),dtype=np.uint8))  # set to 0 means downlink first
+                uplink_mask = symbol_sr == "send"
+                direction_sr.loc[uplink_mask] = 1
+                #print "symbol_sr:", symbol_sr
+                #print "direction_sr:", direction_sr
+
+
+            # conv datetime fields with pandas then assign back to padf - do this before adding lat lon as index would change...
+            for i in range(len(fields_need_pd_datetime)):                
+                index = field_indexes_need_pd_datetime[i]
+                field = fields_need_pd_datetime[i]
+                print "converting field index {} name {} to datetime...".format(index, field)
+                # convert
+                converted_sr = pd.to_datetime(padf.column(index).to_pandas())
+                #print "converted_sr head:", converted_sr.head()
+                # assign it back
+                padf = padf.set_column(index, field, pa.Array.from_pandas(converted_sr))
+
+
+            if has_geom_field:                
+                # use pandas to decode geom from hex to binary, then extract lat, lon from wkb
+                geom_sr = padf.column(geom_field_index).to_pandas().str.decode("hex")
+                #print 'geom_sr.head():', geom_sr.head()
+                lon_sr = geom_sr.apply(lambda x: None if (x is None or len(x) != WKB_POINT_LAT_LON_BYTES_LEN) else np.frombuffer(x[9:9+8], dtype=np.float64)).astype(np.float64)  # X                                
+                lat_sr = geom_sr.apply(lambda x: None if (x is None or len(x) != WKB_POINT_LAT_LON_BYTES_LEN) else np.frombuffer(x[9+8:9+8+8], dtype=np.float64)).astype(np.float64)  # Y
+                #print 'lon_sr', lon_sr.head()
+                #print 'lat_sr', lat_sr.head()
+                
+                ##### assign all three back to padf
+                ## replace geom with newly converted to binary geom_sr
+                padf = padf.set_column(geom_field_index, pa.field("geom", "binary"), pa.Array.from_pandas(geom_sr))
+
+                ## insert lat, lon
+                padf = padf.add_column(LAT_COL_INSERT_INDEX, pa.field("lat", pa.float64()), pa.Array.from_pandas(lat_sr))
+                padf = padf.add_column(LON_COL_INSERT_INDEX, pa.field("lon", pa.float64()), pa.Array.from_pandas(lon_sr))
+
+            # finally drop 'time_ms' legacy column used long ago in mysql where it didnt have milliseconds - not used anymore
+            for drop_index in field_index_to_drop:
+                padf = padf.remove_column(drop_index)            
+                
+            #print "padf.schema:\n", padf.schema            
             print "padf len:", len(padf)
 
             with open(pqfp, "wb") as fos:
-                # TODO: do fixed schema column type          
                 pq.write_table(padf, fos, flavor='spark', compression='gzip')
             assert os.path.isfile(pqfp)
             print "wrote pqfp:", pqfp
@@ -1526,3 +1588,7 @@ def exec_creatept_or_alter_handle_concurrency(sqlstr, raise_exception_if_fail=Tr
         raise Exception("exec_creatept_or_alter_handle_concurrency FAILED after max retries: {} prev_exstr: {}".format(exec_creatept_or_alter_handle_concurrency_max_retries, prev_exstr))
     
     return ret
+
+
+def is_datetime_col(col):
+    return col.endswith("time") and (not col.endswith("trip_time"))

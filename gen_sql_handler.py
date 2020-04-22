@@ -1234,8 +1234,8 @@ wcdma_celltype_14: INT32 Null
                 ),
                 convert_options=csv.ConvertOptions(
                     column_types=pa_column_types,
-                    #null_values=None,
-                    #strings_can_be_null=None,
+                    null_values=[""],
+                    strings_can_be_null=True,
                 )
                 
             )
@@ -1332,7 +1332,9 @@ wcdma_celltype_14: INT32 Null
 
             if has_geom_field:                
                 # use pandas to decode geom from hex to binary, then extract lat, lon from wkb
-                geom_sr = padf.column(geom_field_index).to_pandas().str.decode("hex")
+                geom_sr = padf.column(geom_field_index).to_pandas()
+                geom_sr = geom_sr.fillna("")
+                geom_sr = geom_sr.str.decode("hex")
                 #print 'geom_sr.head():', geom_sr.head()
                 lon_sr = geom_sr.apply(lambda x: None if (x is None or len(x) != WKB_POINT_LAT_LON_BYTES_LEN) else np.frombuffer(x[9:9+8], dtype=np.float64)).astype(np.float64)  # X                                
                 lat_sr = geom_sr.apply(lambda x: None if (x is None or len(x) != WKB_POINT_LAT_LON_BYTES_LEN) else np.frombuffer(x[9+8:9+8+8], dtype=np.float64)).astype(np.float64)  # Y

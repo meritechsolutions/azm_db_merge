@@ -1174,7 +1174,7 @@ wcdma_celltype_14: INT32 Null
                     
                     if parquet_arrow_mode:
                         # use pyarrow above so we can specify spark flavor instead
-                        with open(pqfp, "wb") as fos:
+                        with pa.OSFile(pqfp, "wb") as fos:
                             # TODO: do fixed schema column type
                             padf = pa.Table.from_pandas(df)         
                             if table_name == "wcdma_cells_combined":
@@ -1356,8 +1356,7 @@ wcdma_celltype_14: INT32 Null
             #print "padf.schema:\n", padf.schema            
             print "padf len:", len(padf)
 
-            with open(pqfp, "wb") as fos:
-                pq.write_table(padf, fos, flavor='spark', compression='gzip')
+            pq.write_table(padf, pqfp, flavor='spark', compression='gzip')
             assert os.path.isfile(pqfp)
             print "wrote pqfp:", pqfp
             

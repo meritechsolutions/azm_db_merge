@@ -1174,13 +1174,12 @@ wcdma_celltype_14: INT32 Null
                     
                     if parquet_arrow_mode:
                         # use pyarrow above so we can specify spark flavor instead
-                        with pa.OSFile(pqfp, "wb") as fos:
-                            # TODO: do fixed schema column type
-                            padf = pa.Table.from_pandas(df)         
-                            if table_name == "wcdma_cells_combined":
-                                schema = padf.schema
-                                print "df.wcdma_celltype_5.dtype padf schema:"
-                            pq.write_table(padf, fos, flavor='spark', compression='gzip')
+                        # TODO: do fixed schema column type
+                        padf = pa.Table.from_pandas(df)         
+                        if table_name == "wcdma_cells_combined":
+                            schema = padf.schema
+                            print "df.wcdma_celltype_5.dtype padf schema:"
+                        pq.write_table(pqfp, fos, flavor='spark', compression='gzip')
 
                     else:
                         engine = 'fastparquet'

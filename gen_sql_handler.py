@@ -25,6 +25,7 @@ import pyarrow.parquet as pq
 import io
 import struct
 
+PARQUET_COMPRESSION = 'snappy'
 WKB_POINT_LAT_LON_BYTES_LEN = 25
 # global vars
 g_is_postgre = False
@@ -294,15 +295,15 @@ def check_if_already_merged(args, log_hash):
                         
             if (args['unmerge']):
                 
-                dprint("um0: row: "+str(row))
+                #dprint("um0: row: "+str(row))
 
                 if g_is_postgre or g_is_ms:
-                    dprint("upg 0")
+                    #dprint("upg 0")
                     # row is a tuple - make it a dict
-                    dprint("upg 01")
+                    #dprint("upg 01")
                     # now we only need 'log_hash' to unmerge and the used odbc cant parse geom too - cols = get_remote_columns(args,'logs')
                     cols = [['log_hash', 'bigint']]
-                    dprint("upg 1: cols: "+str(cols))
+                    #dprint("upg 1: cols: "+str(cols))
                     drow = {}
                     i = 0
                     for col in cols:
@@ -311,7 +312,7 @@ def check_if_already_merged(args, log_hash):
                         i = i+1
                     row = drow
                 
-                dprint("um1")
+                #dprint("um1")
                     
                 print "### unmerge mode - delete start for azm: log_hash {}".format(row['log_hash'])
                 g_unmerge_logs_row = row
@@ -457,7 +458,7 @@ def find_and_conv_spatialite_blob_to_wkb(csv_line):
         return csv_line
     part = csv_line[spat_blob_offset:spat_blob_offset+120+1]
     #print "part[120]:", part[120]
-    dprint("csv_line spatialite_geom_part: "+part)
+    #dprint("csv_line spatialite_geom_part: "+part)
 
     spatialite_geom_contents = ""
     if (g_is_postgre and (part[120] == ',' or part[120] == '\n')) or (g_is_ms and part[120] == '\t'):
@@ -466,7 +467,7 @@ def find_and_conv_spatialite_blob_to_wkb(csv_line):
         dprint("check of spatialite_geom_part - failed - abort")
         return csv_line
     
-    dprint("spatialite_geom_contents: len "+str(len(spatialite_geom_contents))+" val: "+spatialite_geom_contents)
+    #dprint("spatialite_geom_contents: len "+str(len(spatialite_geom_contents))+" val: "+spatialite_geom_contents)
     # convert spatialite geometry blob to wkb
     """
 
@@ -564,13 +565,13 @@ def find_and_conv_spatialite_blob_to_wkb(csv_line):
             0000000000001440 X = 5
             0000000000002440 Y = 10
             """
-            wkb = "E6100000010C"+point
-        dprint("wkb: "+wkb)
+            wkb = "E6100000010C"+point        
         csv_line = csv_line.replace(spatialite_geom_contents,wkb,1)
     else:
-        dprint("not entering spatialite blob parse - len "+str(len(spatialite_geom_contents)))
+        pass
+        #dprint("not entering spatialite blob parse - len "+str(len(spatialite_geom_contents)))
 
-    dprint("find_and_conv_spatialite_blob_to_wkb ret: "+csv_line)
+    #dprint("find_and_conv_spatialite_blob_to_wkb ret: "+csv_line)
     return csv_line
 
 
@@ -630,7 +631,7 @@ def create(args, line, parquet_arrow_mode=True, parquet_conv_df_types=True):
     '''
     # get part inside parenthesis
     ls = line_adj.split('" (')
-    dprint("ls :" + str(ls))
+    #dprint("ls :" + str(ls))
     ls = ls[1].split(");")[0]
     # split by comma
     ls = ls.split(",")
@@ -668,7 +669,7 @@ def create(args, line, parquet_arrow_mode=True, parquet_conv_df_types=True):
 
     if (not args['dump_parquet']) or (table_name == "logs"):
         try:
-            dprint("create sqlstr: "+sqlstr)
+            #dprint("create sqlstr: "+sqlstr)
 
             if g_is_postgre:
 
@@ -699,14 +700,14 @@ def create(args, line, parquet_arrow_mode=True, parquet_conv_df_types=True):
                             print "WARNING: create table_per_month schema failed - next insert/COPY commands would likely faile now - exstr:", exstr
 
 
-                dprint("create sqlstr postgres mod: "+sqlstr)
+                #dprint("create sqlstr postgres mod: "+sqlstr)
                 is_contains_geom_col = True            
                 # postgis automatically creates/maintains "geometry_columns" 'view'
 
 
 
             if g_is_ms:
-                dprint("create sqlstr mod mssql geom: "+sqlstr)
+                #dprint("create sqlstr mod mssql geom: "+sqlstr)
                 is_contains_geom_col = True            
 
             if g_is_postgre:
@@ -724,7 +725,7 @@ def create(args, line, parquet_arrow_mode=True, parquet_conv_df_types=True):
                 ret = g_cursor.execute(sqlstr)
             # commit now otherwise COPY might not see partitions
             g_conn.commit()
-            dprint("create execute ret: "+str(ret))
+            #dprint("create execute ret: "+str(ret))
 
             """ if control reaches here then the create is successful
             - table was not existing earlier - so remote cols must be the same
@@ -780,7 +781,8 @@ def create(args, line, parquet_arrow_mode=True, parquet_conv_df_types=True):
                 n_cols_to_add = len(local_columns_not_in_remote)
 
                 if (n_cols_to_add == 0):
-                    dprint("n_cols_to_add == 0 - no need to alter table")
+                    pass
+                    #dprint("n_cols_to_add == 0 - no need to alter table")
                 else:
                     print "n_cols_to_add: " + str(n_cols_to_add) + " - need to alter table - add cols:" + str(local_columns_not_in_remote) + "\nremote_cols:\n"+str(remote_columns)
                     # example: ALTER TABLE dbo.doc_exa ADD column_b VARCHAR(20) NULL, column_c INT NULL ; 
@@ -876,7 +878,7 @@ def create(args, line, parquet_arrow_mode=True, parquet_conv_df_types=True):
         i = 0
         col_select = ""
         first = True
-        dprint("local_columns: "+str(local_columns))
+        #dprint("local_columns: "+str(local_columns))
         for col in local_columns:
             col_name = col[0]
             col_type = col[1]
@@ -906,7 +908,7 @@ def create(args, line, parquet_arrow_mode=True, parquet_conv_df_types=True):
             col_select = col_select + pre + col_name + post            
             i = i + 1
         
-        dprint("col_select: "+col_select)
+        #dprint("col_select: "+col_select)
                 
         if g_is_ms:
             ret = call(
@@ -940,9 +942,10 @@ def create(args, line, parquet_arrow_mode=True, parquet_conv_df_types=True):
                 '.out ' + '"' +table_dump_fp.replace("\\","\\\\") + '"',  # double backslash because it needs to go inside sqlite3 cmd parsing again
                 select_sqlstr
                 ]
-            dprint("dump_cmd:", dump_cmd)
+            #dprint("dump_cmd:", dump_cmd)
 
             # if parquet dump mode do only logs table dump to track already imported
+            start_time = datetime.datetime.now()
             if True:#(not args['dump_parquet']) or parquet_arrow_mode or table_name == "logs":
                 ret = call(
                     dump_cmd,
@@ -950,10 +953,12 @@ def create(args, line, parquet_arrow_mode=True, parquet_conv_df_types=True):
                 )
             #print "dump_cmd:", dump_cmd
             #print "dump_cmd ret:", ret
+            print "dump_csv duration:", (datetime.datetime.now() - start_time).total_seconds()
 
         table_dump_fp_adj = table_dump_fp + "_adj.csv"        
 
         if True:
+            start_time = datetime.datetime.now()
             with open(table_dump_fp,"rb") as of:
                 with open(table_dump_fp_adj,"wb") as nf:  # wb required for windows so that \n is 0x0A - otherwise \n will be 0x0D 0x0A and doest go with our fmt file and only 1 row will be inserted per table csv in bulk inserts...
                     while True:
@@ -972,12 +977,13 @@ def create(args, line, parquet_arrow_mode=True, parquet_conv_df_types=True):
                             break
 
                         nf.write(ofl)
+            print "find_and_conv_spatialite_blob_to_wkb total file duration:", (datetime.datetime.now() - start_time).total_seconds()
 
         table_dump_fp_ori = table_dump_fp
         pqfp = table_dump_fp_ori.replace(".csv","_{}.parquet".format(args['log_hash']))
         table_dump_fp = table_dump_fp_adj
 
-        dprint("dump table: "+table_name+" for bulk insert ret: "+str(ret))
+        #dprint("dump table: "+table_name+" for bulk insert ret: "+str(ret))
         
         if (ret != 0):
             print "WARNING: dump table: "+table_name+" for bulk insert failed - likely sqlite db file error like: database disk image is malformed. In many cases, data is still correct/complete so continue."
@@ -1179,12 +1185,12 @@ wcdma_celltype_14: INT32 Null
                         if table_name == "wcdma_cells_combined":
                             schema = padf.schema
                             print "df.wcdma_celltype_5.dtype padf schema:"
-                        pq.write_table(pqfp, fos, flavor='spark', compression='gzip')
+                        pq.write_table(pqfp, fos, flavor='spark', compression=PARQUET_COMPRESSION, use_dictionary=True)
 
                     else:
                         engine = 'fastparquet'
                         print "pd.to_parquet mode - engine: {}".format(engine)
-                        df.to_parquet(pqfp, engine=engine, compression='gzip')  # gzip size seems much smaller - like signalling table of /host_shared_dir/logs/2019_12/processed/865184035420781-25_12_2019-16_09_55_processed.azm - gzip size 1.0 MB, snappy 1.8 MB
+                        df.to_parquet(pqfp, engine=engine, compression=PARQUET_COMPRESSION)  # gzip size seems much smaller - like signalling table of /host_shared_dir/logs/2019_12/processed/865184035420781-25_12_2019-16_09_55_processed.azm - gzip size 1.0 MB, snappy 1.8 MB
 
                     print "parquet dump df duration:", (datetime.datetime.now() - start_time).total_seconds()
                 '''
@@ -1221,7 +1227,9 @@ wcdma_celltype_14: INT32 Null
             #print "pa_column_types:", pa_column_types
             #print "local_column_names:", local_column_names
             # adj types for pa
-            
+
+
+            start_time = datetime.datetime.now()
             padf = csv.read_csv(
                 table_dump_fp,
                 read_options=csv.ReadOptions(
@@ -1238,6 +1246,7 @@ wcdma_celltype_14: INT32 Null
                 )
                 
             )
+            print "padf read_csv duration:", (datetime.datetime.now() - start_time).total_seconds()
 
             '''
             ###### Older version to convert whole padf to pddf ---
@@ -1266,7 +1275,8 @@ wcdma_celltype_14: INT32 Null
                     #print "pd.to_datetime: col: {} head:".format(col), pddf[col].head()
                     pddf[col] = pd.to_datetime(pddf[col])
             '''
-                    
+            start_time = datetime.datetime.now()
+            
             cur_schema = padf.schema
             field_indexes_need_pd_datetime = []
             fields_need_pd_datetime = []
@@ -1352,11 +1362,15 @@ wcdma_celltype_14: INT32 Null
             for drop_index in field_index_to_drop:
                 padf = padf.remove_column(drop_index)            
                 
-            #print "padf.schema:\n", padf.schema            
+            #print "padf.schema:\n", padf.schema
+            print "padf processing and conversion with pd duration:", (datetime.datetime.now() - start_time).total_seconds()
+            
             print "padf len:", len(padf)
 
-            pq.write_table(padf, pqfp, flavor='spark', compression='gzip')
+            start_time = datetime.datetime.now()            
+            pq.write_table(padf, pqfp, flavor='spark', compression=PARQUET_COMPRESSION, use_dictionary=True)
             assert os.path.isfile(pqfp)
+            print "pq.write_table duration:", (datetime.datetime.now() - start_time).total_seconds()
             print "wrote pqfp:", pqfp
             
             # if log_table dont return - let it enter pg too...
@@ -1397,9 +1411,9 @@ wcdma_celltype_14: INT32 Null
             else:
                 terminator = azm_db_constants.BULK_INSERT_COL_SEPARATOR_PARAM
             if not table_name.startswith("wifi_scanned"):
-                dprint("remote_column_names: "+str(remote_column_names))
+                #dprint("remote_column_names: "+str(remote_column_names))
                 pass
-            dprint("col: "+str(col))
+            #dprint("col: "+str(col))
             server_col_order = remote_column_names.index(col) + 1 # not 0 based
             server_col_name = col # always same col name
             fmt.write(
@@ -1442,7 +1456,7 @@ wcdma_celltype_14: INT32 Null
                 colnames               
             )
         
-        dprint("START bulk insert sqlstr: "+sqlstr)
+        #dprint("START bulk insert sqlstr: "+sqlstr)
         g_exec_buf.append((sqlstr, table_dump_fp))
         # print("DONE bulk insert - nrows inserted: "+str(ret.rowcount))
     
@@ -1502,16 +1516,16 @@ def get_remote_columns(args, table_name):
     global g_cursor
     global g_is_ms, g_is_postgre
     
-    dprint("table_name: "+table_name)
+    #dprint("table_name: "+table_name)
     sqlstr = ""
     if g_is_ms:
         sqlstr = "sp_columns @table_name=\"{}\"".format(table_name)
     if g_is_postgre:
         sqlstr = "select * from \"{}\" where false".format(table_name)
         
-    dprint("check table columns sqlstr: "+sqlstr)
+    #dprint("check table columns sqlstr: "+sqlstr)
     ret = g_cursor.execute(sqlstr)
-    dprint("query execute ret: "+str(ret))
+    #dprint("query execute ret: "+str(ret))
     rows = g_cursor.fetchall()
 
     '''
@@ -1538,12 +1552,12 @@ def get_remote_columns(args, table_name):
             col_type: text
             '''
             rs = str(row)
-            dprint("row n: " + rs)
+            #dprint("row n: " + rs)
             splitted = rs.split(", u")
             col_name = splitted[3].split("'")[1]
-            dprint("col_name: "+col_name)
+            #dprint("col_name: "+col_name)
             col_type = splitted[4].split("'")[1]
-            dprint("col_type: "+col_type)
+            #dprint("col_type: "+col_type)
             remote_columns.append([col_name,col_type])
 
         return remote_columns

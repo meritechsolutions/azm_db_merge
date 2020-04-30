@@ -575,7 +575,7 @@ def find_and_conv_spatialite_blob_to_wkb(csv_line):
     return csv_line
 
 
-def create(args, line, parquet_arrow_mode=True, parquet_conv_df_types=True):
+def create(args, line):
     global g_cursor, g_conn
     global g_prev_create_statement_table_name
     global g_prev_create_statement_column_names
@@ -903,7 +903,9 @@ def create(args, line, parquet_arrow_mode=True, parquet_conv_df_types=True):
                 col_name = "substr(gsm_bsic, 0, 6) as gsm_bsic"  # limit to 5 char len (6 is last index excluding)
             elif col_name == "android_cellid_from_cellfile":
                 col_name = "cast(android_cellid_from_cellfile as int) as android_cellid_from_cellfile"  # type cast required to remove non-int in cellfile data
-                
+            elif col_name.endswith("duration"):                
+                # many _duration cols in detected_radion_voice_call_session and in pp_ tables have wrong types or even has right type but values came as "" so would be ,"" in csv which postgres and pyarrow wont allow for double/float/numeric cols - check by col_name only is faster than nullif() on all numericols - as most cases are these _duration cols only
+                col_name = "nullif({},'') as {}".format(col_name, col_name)
             
             col_select = col_select + pre + col_name + post            
             i = i + 1
@@ -955,16 +957,22 @@ def create(args, line, parquet_arrow_mode=True, parquet_conv_df_types=True):
             #print "dump_cmd ret:", ret
             print "dump_csv duration:", (datetime.datetime.now() - start_time).total_seconds()
 
+        table_dump_fp_ori = table_dump_fp
+        pqfp = table_dump_fp_ori.replace(".csv","_{}.parquet".format(args['log_hash']))
         table_dump_fp_adj = table_dump_fp + "_adj.csv"        
 
-        if True:
+        geom_format_in_csv_is_wkb = False
+        # in parquet mode we are modifying geom anyway so assume geom is spatialite format instead of wkb
+        
+        if (not args['dump_parquet']) or (table_name == "logs"):           
+            geom_format_in_csv_is_wkb = True            
             start_time = datetime.datetime.now()
             with open(table_dump_fp,"rb") as of:
                 with open(table_dump_fp_adj,"wb") as nf:  # wb required for windows so that \n is 0x0A - otherwise \n will be 0x0D 0x0A and doest go with our fmt file and only 1 row will be inserted per table csv in bulk inserts...
                     while True:
                         ofl = of.readline()
                         if g_is_postgre:
-                            ofl = ofl.replace(',""',',')
+                            ofl = ofl.replace(',""',',')  # keep this legacy code for postgres mode code jus to be sure, although we already did nullif checks during sqlite csv dunp...
 
                         """ no need to check this, only old stale thread versions would have these cases and will have other cases too so let it crash in all those cases
                         if ofl.strip() == all_cols_null_line:
@@ -977,11 +985,11 @@ def create(args, line, parquet_arrow_mode=True, parquet_conv_df_types=True):
                             break
 
                         nf.write(ofl)
-            print "find_and_conv_spatialite_blob_to_wkb total file duration:", (datetime.datetime.now() - start_time).total_seconds()
 
-        table_dump_fp_ori = table_dump_fp
-        pqfp = table_dump_fp_ori.replace(".csv","_{}.parquet".format(args['log_hash']))
-        table_dump_fp = table_dump_fp_adj
+            table_dump_fp = table_dump_fp_adj
+            print """find_and_conv_spatialite_blob_to_wkb, replace ,"" with , total file duration:""", (datetime.datetime.now() - start_time).total_seconds()
+
+
 
         #dprint("dump table: "+table_name+" for bulk insert ret: "+str(ret))
         
@@ -994,220 +1002,10 @@ def create(args, line, parquet_arrow_mode=True, parquet_conv_df_types=True):
             return True
         
         # if control reaches here then the table is not empty
-
-        if args['dump_parquet'] and (not parquet_arrow_mode):
-            with sqlite3.connect(args['file']) as dbcon:
-
-                ###### try convert spatialite geom to wkb
-                pq_select = select_sqlstr.replace(
-                    'hex(geom)',
-                    '''(
-                    /* little endian as in comment about Spatialite BLOB Format, point (1: 32 bit little endian is 01000000) */ '0101000000' 
-                    /* || is sqlite string + */ ||
-                    /* x offset 86 but sqlite offset starts from 1 so +1, 16 bytes */ substr(hex(geom), 86+1, 16) 
-                    /* || is sqlite string + */ ||
-                    /* y offset 102 but sqlite offset starts from 1 so +1, 16 bytes */substr(hex(geom), 102+1, 16)
-                    ) as geom'''
-                )
-                #print "dump_parquet select_sqlstr:", select_sqlstr
-                print "dump_parquet - read df for table:", table_name
-                start_time = datetime.datetime.now()
-                df = pd.read_sql(pq_select, dbcon)
-                #df = pd.read_csv(table_dump_fp, header=0, names=local_column_names)
-                print "pd read df duration:", (datetime.datetime.now() - start_time).total_seconds()
-                #print "df['geom']:", df['geom']
-
-                '''
-                if table_name == "log_info":
-                    print "pre conv type log_info df.loc[pd.notnull(df.imsi), 'imsi']:", df.loc[pd.notnull(df.imsi), 'imsi']
-                '''
-
-                #print "df cols:", df.columns
-                start_time = datetime.datetime.now()
-                added_cols = []
-                if 'geom' in df.columns:  # not all tables have geom column
-                    
-                    #### add lat lon columns as st_x() and st_y() functions not present in geospark at the time of this writing, even if they were - it would be processing overhead for many simple cases we jut needed lat and lon to plot - not for selects or intersects etc
-                    
-                    # restore null geom rows that would now appear as '0100000001'
-                    to_null_mask = df.geom == '0101000000'
-                    not_null_mask = ~to_null_mask
-                    # df.loc[to_null_mask, "geom"] = np.nan  # dont set it to null as would cause geospark exception: Caused by: java.lang.NullPointerException\n\tat org.apache.spark.sql.geosparksql.expressions.ST_GeomFromWKB...                    
-                    added_cols = ["lat", "lon"]
-                    df["lat"] = np.nan
-                    df["lon"] = np.nan
-                    df["lon"] = df.loc[not_null_mask, "geom"].str.slice(10, 26).str.decode('hex').apply(lambda val: np.frombuffer(val, dtype=np.float64)[0]).astype(np.float64)  # X
-                    df["lat"] = df.loc[not_null_mask, "geom"].str.slice(26, 42).str.decode('hex').apply(lambda val: np.frombuffer(val, dtype=np.float64)[0]).astype(np.float64)  # Y
-
-                    ''' BELOW IS SLOWER THAN ABOVE PLAIN APPLY
-                    """ we cant use .values.tobytes() directly as it sees the numpy array dtype is object and tries to encode it like below uint64 example:
-In [106]: df.b.str.decode("hex").values
-Out[106]: 
-array(['\x01\x00\x00\x00\x00\x00\x00\x00',
-       '\x02\x00\x00\x00\x00\x00\x00\x00'], dtype=object)
-
-In [107]: df.b.str.decode("hex").values.tobytes()
-Out[107]: '@hl\xca\xbf\x7f\x00\x00\xe0gl\xca\xbf\x7f\x00\x00'
-                    ---
-                    So we will loop to dump each buffer to a bytesio tmp file then later np.frombuffer()
-                    """
-                    tmp_src_vals_dict = {
-                        "lon": df.loc[not_null_mask, "geom"].str.slice(10, 26).str.decode('hex'),  # X
-                        "lat": df.loc[not_null_mask, "geom"].str.slice(26, 42).str.decode('hex'),  # Y
-                    }
-
-                    for key in tmp_src_vals_dict.keys():
-                        with io.BytesIO() as tmp_dumpf:
-                            for val in tmp_src_vals_dict[key]:
-                                tmp_dumpf.write(val)
-                            tmp_dumpf.seek(0)
-                            floats_array = np.frombuffer(tmp_dumpf.read(), dtype=np.float64)
-                            #print "len floats_array:", len(floats_array)
-                            df.loc[not_null_mask, key] = floats_array
-                    '''
-                        
-                    
-                    #print "df['lon']:", df['lon']
-                    #print "df['lat']:", df['lat']
-                    df["geom"] = df["geom"].str.decode('hex')
-
-                print "geom to lat lon cols duration:", (datetime.datetime.now() - start_time).total_seconds()
-
-                ##############################
-
-                if parquet_conv_df_types:
-                    start_time = datetime.datetime.now()
-                    for col in df.columns:
-                        if col in added_cols:
-                            continue
-                        # set as per local_col_name_to_type_dict
-                        col_type_str = local_col_name_to_type_dict[col].lower()
-                        col_type = None
-
-                        if col == "log_hash":
-                            col_type = np.int64
-                        elif col.endswith("duration"):
-                            col_type = np.float64
-                        elif col_type_str in KNOWN_COL_TYPES_LOWER_TO_PD_PARQUET_TYPE_DICT:
-                            col_type = KNOWN_COL_TYPES_LOWER_TO_PD_PARQUET_TYPE_DICT[col_type_str]
-                        elif col_type_str.startswith("varchar"):
-                            col_type = unicode
-
-                        if col_type is None:
-                            raise Exception("dump_parquet mode - failed to map col_type for col_type_str: {} of column: {}".format(col_type_str, col))
-
-
-                        ############### col_type hard code fix for db cases that have different types in the past
-                        '''
-                        if col.startswith("wcdma_celltype"):
-                            #print "wcdma_celltype: col: {} col_type: {}".format(col, col_type)
-                            col_type = unicode
-                        '''
-                        ####################################
-
-                        #print "col: {} df[col].dtype: {} col_type: {}".format(col, df[col].dtype, col_type)
-
-                        # set type as per coltype
-                        #print "prepare parquet: set col {} to type {} from src type {}".format(col, col_type, col_type_str)
-                        if col == "log_hash":
-                            df[col] = df[col].astype(np.int64, copy=False)
-                        elif col == "geom":
-                            df[col] = df[col].astype(bytearray, copy=False)
-                            #print "df['geom'].dtype:", df['geom'].dtype
-                            #print "df['geom'].head():", df['geom'].head()
-                        elif col_type == datetime or col.endswith("_time"):
-                            try:
-                                df[col] = pd.to_datetime(df[col])
-                            except:
-                                print "WARNING: got exception converting df column {} to type datetime - df[col]: {} - retrying strip str first...".format(col, df[col])
-                                df[col] = pd.to_datetime(df[col].astype(str).str.strip().replace("", np.nan))
-                        elif pd.api.types.is_numeric_dtype(df[col].dtype) and col_type == np.float64:
-                            # print "already numeric dtype matching pandas targt numeric type - no need to convert..."
-                            continue
-                        else:
-                            try:
-                                # null rows getting converted to 'None' string - skipna=True doesnt work although one person said it did https://github.com/pandas-dev/pandas/issues/25353 - in the end they said this matches behavior of numpy so lets convert all then set null_mask rows back to None
-                                null_mask = pd.isnull(df[col])
-                                df[col] = df[col].astype(col_type, copy=False)
-                                df.loc[null_mask, col] = None
-                                '''
-                                if col.startswith("wcdma_celltype"):
-                                    print "df[{}]:".format(col), df[col]
-                                '''
-                            except Exception as e:
-                                print "WARNING: got exception converting df column {} to type: {} - df[col]: {} - trying auto recovery...".format(col, col_type, df[col])
-
-                                # try handle/recover for known cases
-                                if is_datetime_col(col):
-                                    print "exception handle col endswith 'time' try pd.to_datetime() on col..."
-                                    df[col] = pd.to_datetime(df[col].astype(str))
-                                elif col_type == np.float64 and (df[col].dtype == object or df[col].dtype == str or df[col].dtype == unicode):
-                                    print "excpetion handle retry with <series>.str.strip().replace('', np.nan) next... for case str column and target is np.float64..."
-                                    null_mask = pd.isnull(df[col])
-                                    df.loc[~null_mask, col] = df.loc[~null_mask, col].astype(unicode).str.strip().replace('', np.nan).astype(col_type, copy=False)
-                                    df.loc[null_mask, col] = None                                
-                                    df[col] = df[col].astype(col_type, copy=False)                            
-                                else:
-                                    raise e  # unknown recover case
-
-                    print "convert types duration:", (datetime.datetime.now() - start_time).total_seconds()
-                    
-
-                if len(df):
-
-                    start_time = datetime.datetime.now()                    
-                    
-                    
-                    '''
-                    TODO try set schema of padf again - but using fastparquet for now as the type is correct but slower than pyarrow (fastparquet 36 vs pyarrow 30 seconds all unmerge + merge)
-                    somehow pyarrow is converting some columns to int although we have set it to unicode in pandas already                    
-kasidit@kasidit-thinkpad:/data/host_shared_dir/minio_data/azm-bucket/2020-04$ parq wcdma_cells_combined_173133109699892998.parquet --schema | grep celltype
-wcdma_celltype_1: BYTE_ARRAY String
-wcdma_celltype_2: BYTE_ARRAY String
-wcdma_celltype_3: BYTE_ARRAY String
-wcdma_celltype_4: BYTE_ARRAY String
-wcdma_celltype_5: INT32 Null
-wcdma_celltype_6: INT32 Null
-wcdma_celltype_7: INT32 Null
-wcdma_celltype_8: INT32 Null
-wcdma_celltype_9: INT32 Null
-wcdma_celltype_10: INT32 Null
-wcdma_celltype_11: INT32 Null
-wcdma_celltype_12: INT32 Null
-wcdma_celltype_13: INT32 Null
-wcdma_celltype_14: INT32 Null
-                    '''
-                    
-                    if parquet_arrow_mode:
-                        # use pyarrow above so we can specify spark flavor instead
-                        # TODO: do fixed schema column type
-                        padf = pa.Table.from_pandas(df)         
-                        if table_name == "wcdma_cells_combined":
-                            schema = padf.schema
-                            print "df.wcdma_celltype_5.dtype padf schema:"
-                        pq.write_table(pqfp, fos, flavor='spark', compression=PARQUET_COMPRESSION, use_dictionary=True)
-
-                    else:
-                        engine = 'fastparquet'
-                        print "pd.to_parquet mode - engine: {}".format(engine)
-                        df.to_parquet(pqfp, engine=engine, compression=PARQUET_COMPRESSION)  # gzip size seems much smaller - like signalling table of /host_shared_dir/logs/2019_12/processed/865184035420781-25_12_2019-16_09_55_processed.azm - gzip size 1.0 MB, snappy 1.8 MB
-
-                    print "parquet dump df duration:", (datetime.datetime.now() - start_time).total_seconds()
-                '''
-                let it fail if dump of any failed
-                except:
-                    type_, value_, traceback_ = sys.exc_info()
-                    exstr = str(traceback.format_exception(type_, value_, traceback_))
-                    print "WARNING: dump to parquet exception:", exstr
-                '''
-
-                if not table_name == "logs":
-                    return True  # dont do further csv formatting as we are doing dump_parquet mode -  but allow logs table insert to track already imported state
-
                 
         ################## read csv to arrow, set types, dump to parqet - return True, but if log_table dont return - let it enter pg too...
         # yes, arrow read from csv, convert to pd to mod datetime col and add lat lon is faster than pd.read_sql() and converting fields and to parquet
-        if args['dump_parquet'] and parquet_arrow_mode:
+        if args['dump_parquet']:
             #print "local_column_names:", local_column_names            
             pa_column_types = local_column_dict.copy()
             for col in pa_column_types.keys():
@@ -1230,6 +1028,7 @@ wcdma_celltype_14: INT32 Null
 
 
             start_time = datetime.datetime.now()
+            print "read csv into pa:", table_dump_fp
             padf = csv.read_csv(
                 table_dump_fp,
                 read_options=csv.ReadOptions(
@@ -1247,34 +1046,7 @@ wcdma_celltype_14: INT32 Null
                 
             )
             print "padf read_csv duration:", (datetime.datetime.now() - start_time).total_seconds()
-
-            '''
-            ###### Older version to convert whole padf to pddf ---
-
-            pddf = padf.to_pandas()
-
-            # add lat, lon
-            #print "pddf.geom:", pddf.geom
-            """
-            # see description in find_and_conv_spatialite_blob_to_wkb(csv_line) comments... "so our class is pont..."
-            01       01000020 E6100000    2346747441EF5240F395FE2D1AE8...
-            [endian] [point]  [4326 type] [point lon, lat]             
-
-            """
-            has_geom_col = "geom" in pddf.columns
-            if has_geom_col:
-                pddf["geom"] = pddf["geom"].str.decode("hex")
-                #print 'pddf["geom"].head():', pddf["geom"].head()
-                pddf["lon"] = pddf.geom.apply(lambda x: None if (x is None or len(x) != WKB_POINT_LAT_LON_BYTES_LEN) else np.frombuffer(x[9:9+8], dtype=np.float64)).astype(np.float64)  # X                                
-                pddf["lat"] = pddf.geom.apply(lambda x: None if (x is None or len(x) != WKB_POINT_LAT_LON_BYTES_LEN) else np.frombuffer(x[9+8:9+8+8], dtype=np.float64)).astype(np.float64)  # Y
-                #print 'pddf["lon"]', pddf["lon"].head()
-                #print 'pddf["lat"]', pddf["lat"].head()
             
-            for col in pddf.columns:
-                if is_datetime_col(col):
-                    #print "pd.to_datetime: col: {} head:".format(col), pddf[col].head()
-                    pddf[col] = pd.to_datetime(pddf[col])
-            '''
             start_time = datetime.datetime.now()
             
             cur_schema = padf.schema
@@ -1343,12 +1115,23 @@ wcdma_celltype_14: INT32 Null
                 # use pandas to decode geom from hex to binary, then extract lat, lon from wkb
                 geom_sr = padf.column(geom_field_index).to_pandas()
                 geom_sr = geom_sr.fillna("")
+                
+                #print 'ori geom_sr.head():', geom_sr.head()
+                
+                if not geom_format_in_csv_is_wkb:
+                    print "geom in csv is in spatialite format - convert to wkb first..."
+                    spatialite_geom_sr = geom_sr
+                    class_type = "01000020E6100000"
+                    endian = "01"  # spatialite_geom_sr.str.slice(start=2, stop=4)
+                    point =  spatialite_geom_sr.str.slice(start=86, stop=118)   # 86 + 16 + 16
+                    geom_sr = endian + class_type + point  # wkb
+                
+                #print 'wkb geom_sr.head():', geom_sr.head()
                 geom_sr = geom_sr.str.decode("hex")
-                #print 'geom_sr.head():', geom_sr.head()
                 lon_sr = geom_sr.apply(lambda x: None if (x is None or len(x) != WKB_POINT_LAT_LON_BYTES_LEN) else np.frombuffer(x[9:9+8], dtype=np.float64)).astype(np.float64)  # X                                
                 lat_sr = geom_sr.apply(lambda x: None if (x is None or len(x) != WKB_POINT_LAT_LON_BYTES_LEN) else np.frombuffer(x[9+8:9+8+8], dtype=np.float64)).astype(np.float64)  # Y
-                #print 'lon_sr', lon_sr.head()
-                #print 'lat_sr', lat_sr.head()
+                print 'lon_sr', lon_sr.head()
+                print 'lat_sr', lat_sr.head()
                 
                 ##### assign all three back to padf
                 ## replace geom with newly converted to binary geom_sr                
@@ -1367,8 +1150,11 @@ wcdma_celltype_14: INT32 Null
             
             print "padf len:", len(padf)
 
-            start_time = datetime.datetime.now()            
+            start_time = datetime.datetime.now()
+
+            # use snappy and use_dictionary - https://wesmckinney.com/blog/python-parquet-multithreading/
             pq.write_table(padf, pqfp, flavor='spark', compression=PARQUET_COMPRESSION, use_dictionary=True)
+            
             assert os.path.isfile(pqfp)
             print "pq.write_table duration:", (datetime.datetime.now() - start_time).total_seconds()
             print "wrote pqfp:", pqfp
@@ -1615,3 +1401,10 @@ def exec_creatept_or_alter_handle_concurrency(sqlstr, raise_exception_if_fail=Tr
 
 def is_datetime_col(col):
     return col.endswith("time") and (not col.endswith("trip_time"))
+
+
+def is_numeric_col_type(col_type):
+    cl = col_type.lower()
+    if cl in ("int", "integer", "bigint", "biginteger", "real", "double", "float"):
+        return True
+    return False

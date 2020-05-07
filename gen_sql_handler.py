@@ -592,6 +592,9 @@ def create(args, line):
     table_name = get_table_name(line_adj)
     schema_per_month_name = "per_month_{}".format(table_name)
 
+    if table_name.startswith("spatialite_history"):
+        return False  # omit these tables - import fails
+
     if table_name == "logs":
         uline = line.replace('"log_hash" BIGINT,','"log_hash" BIGINT UNIQUE,',1)
         print "'logs' table cre - make log_hash unique for this table: ", uline

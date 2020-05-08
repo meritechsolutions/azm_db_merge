@@ -902,7 +902,10 @@ def create(args, line):
             ############## wrong data format fixes
             
             ### custom limit bsic len in case matched wrongly entered bsic to long str but pg takes max 5 char len for bsic
-            if col_name == "gsm_bsic":
+            if col_name == "modem_time":
+                # handle invalid modem_time case: 159841018-03-10 07:24:42.191
+                col_name = "strftime('%Y-%m-%d %H:%M:%f', modem_time) as modem_time"            
+            elif col_name == "gsm_bsic":
                 col_name = "substr(gsm_bsic, 0, 6) as gsm_bsic"  # limit to 5 char len (6 is last index excluding)
             elif col_name == "android_cellid_from_cellfile":
                 col_name = "cast(android_cellid_from_cellfile as int) as android_cellid_from_cellfile"  # type cast required to remove non-int in cellfile data

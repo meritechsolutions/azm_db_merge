@@ -16,14 +16,12 @@ import time
 import datetime
 from dateutil.relativedelta import relativedelta
 import random
+import glob
 import pandas as pd
 import numpy as np
-import sqlite3
 import pyarrow as pa
 from pyarrow import csv
 import pyarrow.parquet as pq
-import io
-import struct
 
 PARQUET_COMPRESSION = 'snappy'
 WKB_POINT_LAT_LON_BYTES_LEN = 25
@@ -177,7 +175,7 @@ def connect(args):
             print "pg mode create pg_schema:", args["pg_schema"]
             try:
                 with g_conn as c:
-                    ret = g_cursor.execute("create schema if not exists "+args["pg_schema"])
+                    g_cursor.execute("create schema if not exists "+args["pg_schema"])
                     c.commit()
                     print "success: create schema "+args["pg_schema"]+ " success"
                     
@@ -238,7 +236,7 @@ def try_cre_postgis(schema="public"):
         with g_conn as c:
             sql = "CREATE EXTENSION if not exists postgis SCHEMA {}".format(schema)
             print "try: CREATE EXTENSION postgis on schema:", schema, "sql:", sql
-            ret = g_cursor.execute(sql)
+            g_cursor.execute(sql)
             c.commit()
             print "success: CREATE EXTENSION postgis"
     except Exception as e:
@@ -269,10 +267,9 @@ def check_if_already_merged(args, log_hash):
 
         row = None
 
-        # use with for auto rollback() on g_conn on exception - otherwise we cant use the cursor again - would fail as: current transaction is aborted, commands ignored until end of transaction block
-        ret = None
-        with g_conn as c:
-            ret = g_cursor.execute(sqlstr, [log_hash])
+        # use with for auto rollback() on g_conn on exception - otherwise we cant use the cursor again - would fail as: current transaction is aborted, commands ignored until end of transaction block        
+        with g_conn:
+            g_cursor.execute(sqlstr, [log_hash])
             row = g_cursor.fetchone()
 
         print("after cmd check if exists row:", row)
@@ -401,7 +398,7 @@ def commit(args, line):
                 g_cursor.copy_expert(buf, dump_fp_fo)
         else:
             try:
-                with g_conn as c:  # needed otherwise cursor would become invalid and unmerge would fail for no table cases handled below
+                with g_conn:  # needed otherwise cursor would become invalid and unmerge would fail for no table cases handled below
                     g_cursor.execute(buf)
             except Exception as e:
                 if "does not exist" in str(e) and args['unmerge']:
@@ -437,7 +434,17 @@ def commit(args, line):
             print "mc rmcmd:", rmcmd
             rmcmdret = os.system(rmcmd)
             if rmcmdret != 0:
-                raise Exception("Copy files to object store failed cmcmdret: {}".format(rmcmdret))
+                raise Exception("Remove files from object store failed cmcmdret: {}".format(rmcmdret))
+            try:
+                with g_conn:
+                    update_sql = "update uploaded_logs set non_azm_object_size_bytes = null where log_hash = {};".format(args['log_hash'])
+                    print "update_sql:", update_sql
+                    g_cursor.execute(update_sql)
+            except:
+                type_, value_, traceback_ = sys.exc_info()
+                exstr = str(traceback.format_exception(type_, value_, traceback_))
+                print "WARNING: update uploaded_logs set non_azm_object_size_bytes to null failed exception:", exstr
+
         else:
             cpcmd = "mc cp {}/*.parquet minio_logs/{}/{}/".format(
                 g_dir_processing_azm,
@@ -448,6 +455,20 @@ def commit(args, line):
             cpcmdret = os.system(cpcmd)
             if cpcmdret != 0:
                 raise Exception("Copy files to object store failed cmcmdret: {}".format(cpcmdret))
+            try:
+                combined_pq_size = 0
+                for fp in glob.glob('{}/*.parquet'.format(g_dir_processing_azm)):
+                    fp_sz = os.path.getsize(fp)
+                    combined_pq_size += fp_sz
+                with g_conn:
+                    update_sql = "update uploaded_logs set non_azm_object_size_bytes = {} where log_hash = {};".format(combined_pq_size, args['log_hash'])
+                    print "update_sql:", update_sql
+                    g_cursor.execute(update_sql)
+            except:
+                type_, value_, traceback_ = sys.exc_info()
+                exstr = str(traceback.format_exception(type_, value_, traceback_))
+                print "WARNING: update uploaded_logs set non_azm_object_size_bytes to parquets size failed exception:", exstr
+
     
     return True
 
@@ -668,8 +689,6 @@ def create(args, line):
     
     remote_column_names = None
 
-    is_contains_geom_col = False
-
     if (not args['dump_parquet']) or (table_name == "logs"):
         try:
             #dprint("create sqlstr: "+sqlstr)
@@ -685,14 +704,14 @@ def create(args, line):
                         # ok - partition this table
                         sqlstr = sqlstr.replace(";","") +" PARTITION BY RANGE (time);"
                         try:
-                            with g_conn as c:
+                            with g_conn:
                                 g_cursor.execute("SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{}';".format(schema_per_month_name))
                                 if bool(g_cursor.rowcount):
                                     print "schema_per_month_name already exists:", schema_per_month_name
                                     pass
                                 else:
                                     print "cre schema now because: NOT schema_per_month_name already exists:", schema_per_month_name
-                                    with g_conn as c:
+                                    with g_conn:
                                         c_table_per_month_sql = "create schema {};".format(schema_per_month_name)
                                         ret = g_cursor.execute(c_table_per_month_sql)
                                         g_conn.commit()
@@ -703,18 +722,17 @@ def create(args, line):
                             print "WARNING: create table_per_month schema failed - next insert/COPY commands would likely faile now - exstr:", exstr
 
 
-                #dprint("create sqlstr postgres mod: "+sqlstr)
-                is_contains_geom_col = True            
+                #dprint("create sqlstr postgres mod: "+sqlstr)                
                 # postgis automatically creates/maintains "geometry_columns" 'view'
 
 
 
             if g_is_ms:
                 #dprint("create sqlstr mod mssql geom: "+sqlstr)
-                is_contains_geom_col = True            
+                pass
 
             if g_is_postgre:
-                with g_conn as c:
+                with g_conn:
                     g_cursor.execute("select * from information_schema.tables where table_schema=%s and table_name=%s", (args["pg_schema"],table_name,))
                     if bool(g_cursor.rowcount):
                         #print "omit already existing table - raise exception to check columns instead"
@@ -722,7 +740,7 @@ def create(args, line):
 
             ret = None
             # use with for auto rollback() on g_conn on expected fails like already exists
-            with g_conn as c:
+            with g_conn:
                 sqlstr = sqlstr.replace('" bigintEGER,', '" bigint,')
                 print "exec:", sqlstr
                 ret = g_cursor.execute(sqlstr)
@@ -821,8 +839,7 @@ def create(args, line):
             if table_name == "logs":
                 # dont partition logs table
                 pass
-            else:
-                log_hash = args['log_hash']
+            else:                
                 
                 ##  check/create partitions for month for log_hash, prev month, after month                
                 ori_log_hash_datetime = args['ori_log_hash_datetime']
@@ -835,7 +852,7 @@ def create(args, line):
                     ntn = "logs_{}".format(log_hash_ym_str) # simpler name because we got cases where schema's table name got truncated: activate_dedicated_eps_bearer_context_request_params_3170932708
                     pltn = "{}.{}".format(schema_per_month_name, ntn)
                     per_month_table_already_exists = False
-                    with g_conn as c:
+                    with g_conn:
                         check_sql = "select * from information_schema.tables where table_schema='{}' and table_name='{}'".format(schema_per_month_name, ntn)
                         #print "check_sql:", check_sql
                         g_cursor.execute(check_sql)
@@ -876,8 +893,6 @@ def create(args, line):
 
         # get col list, and hex(col) for blob coulumns
 
-        geom_col_index = -1
-
         i = 0
         col_select = ""
         first = True
@@ -897,7 +912,8 @@ def create(args, line):
                 pre = " hex("
                 post = ")"
                 if col_name == "geom":
-                    geom_col_index = i
+                    pass
+                    #geom_col_index = i
 
             ############## wrong data format fixes
             
@@ -1059,8 +1075,7 @@ def create(args, line):
             field_indexes_need_pd_datetime = []
             fields_need_pd_datetime = []
             field_index_to_drop = []
-            has_geom_field = False
-            geom_field = None
+            has_geom_field = False            
             geom_field_index = None
             field_index = -1
             signalling_symbol_column_index = None
@@ -1316,7 +1331,7 @@ def get_remote_columns(args, table_name):
         sqlstr = "select * from \"{}\" where false".format(table_name)
         
     #dprint("check table columns sqlstr: "+sqlstr)
-    ret = g_cursor.execute(sqlstr)
+    g_cursor.execute(sqlstr)
     #dprint("query execute ret: "+str(ret))
     rows = g_cursor.fetchall()
 

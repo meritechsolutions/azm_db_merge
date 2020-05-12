@@ -1045,7 +1045,8 @@ def create(args, line):
                     pa_column_types[col] = pa.float64()
                 elif col.endswith("session_master_session_id"):
                     pa_column_types[col] = pa.string()  # some old db invalid type cases
-
+                elif pa_column_types[col] == "test":
+                    pa_column_types[col] = pa.string()
             
             # adj types for pa
 

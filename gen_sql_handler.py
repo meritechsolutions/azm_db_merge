@@ -1043,14 +1043,17 @@ def create(args, line):
                     pa_column_types[col] = pa.string()
                 elif col.endswith("duration"):
                     pa_column_types[col] = pa.float64()
+                elif col.endswith("session_master_session_id"):
+                    pa_column_types[col] = pa.string()  # some old db invalid type cases
 
-            #print "pa_column_types:", pa_column_types
-            #print "local_column_names:", local_column_names
+            
             # adj types for pa
 
 
             start_time = datetime.datetime.now()
             print "read csv into pa:", table_dump_fp
+            #print "pa_column_types:", pa_column_types
+            #print "local_column_names:", local_column_names
             padf = csv.read_csv(
                 table_dump_fp,
                 read_options=csv.ReadOptions(

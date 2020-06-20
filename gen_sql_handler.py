@@ -928,6 +928,10 @@ def create(args, line):
             elif col_name.endswith("duration"):                
                 # many _duration cols in detected_radion_voice_call_session and in pp_ tables have wrong types or even has right type but values came as "" so would be ,"" in csv which postgres and pyarrow wont allow for double/float/numeric cols - check by col_name only is faster than nullif() on all numericols - as most cases are these _duration cols only
                 col_name = "nullif({},'') as {}".format(col_name, col_name)
+            elif table_name == "nr_cell_meas" and (("int" in col_type.lower())) :
+                print "nr_cell_meas cast to int:  col_name {} col_type {}".format(col_name, col_type), "int" in col_type.lower()
+                pre = "cast("
+                post = " as int)"
             
             col_select = col_select + pre + col_name + post            
             i = i + 1

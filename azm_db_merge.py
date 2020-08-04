@@ -30,7 +30,7 @@ from datetime import datetime
 from datetime import timedelta
 
 # global vars
-g_target_db_types = ['postgresql','mssql','sqlite3']
+g_target_db_types = ['postgresql','mssql','sqlite3','parquet']
 g_check_and_dont_create_if_empty = False
 
 def parse_cmd_args():
@@ -151,6 +151,11 @@ def parse_cmd_args():
 
     parser.add_argument('--daemon_mode_rerun_on_folder_after_seconds',
                         help='''If specified, azm_db_merge will block re-run on the same folder (specified with '--azm_file') again after the specified number of seconds.''',
+                        default=None,
+                        required=False)
+    
+    parser.add_argument('--parquet_folder',
+                        help='''target folder to put parquet files generated from --parquet_mode''',
                         default=None,
                         required=False)
 
@@ -641,7 +646,17 @@ def process_azm_file(args):
             if dumped_sql_fp is None:
                 raise Exception("FATAL: dumped_sql_fp is None in non popen_mode - ABORT")
         
-        
+
+        if args['target_db_type'] == "parquet":
+            print "gen parquets into target folder mode..."
+            if not args['parquet_folder']:
+                raise Exception('--parquet_folder required for parquet mode')
+            if not os.path.isdir(args['parquet_folder']):
+                os.makedirs(args['parquet_folder'])
+            assert os.path.isdir(args['parquet_folder'])
+            
+            return 0
+            
         # sqlite3 merge is simple run .read on args['dumped_sql_fp']
         if args['target_db_type'] == "sqlite3":
             is_target_exists = os.path.isfile(args['target_sqlite3_file'])

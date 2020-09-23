@@ -759,74 +759,77 @@ def create(args, line):
                    sqlstr+"\nori line:\n"+line)
             if ("There is already an object named" in emsg or
                 " already exists" in emsg):
+                if args['need_check_remote_cols']:
+                    print("args['need_check_remote_cols']", args['need_check_remote_cols'], "so must do alter check")
+                    dprint("""This table already exists -
+                    checking if all local columns already exist in remote
+                    - otherwise will add each missing cols to
+                    remote table before inserting to it.""")
 
-                dprint("""This table already exists -
-                checking if all local columns already exist in remote
-                - otherwise will add each missing cols to
-                remote table before inserting to it.""")
-
-                remote_columns = get_remote_columns(args, table_name)
-                remote_column_names = get_col_names(remote_columns)
-
-                if (len(remote_columns) == 0):
-                    raise Exception("FATAL: failed to parse/list remote columns")
-
-
-
-                # now get local columns that are not in remote
-
-                local_columns_not_in_remote = []
-
-                for col in local_columns:
-                    col_name = col[0]
-                    col_type = col[1]
-
-                    ####### quickfix: col_type override for unsigned int32 cols from sqlite (bindLong already) - conv to bigint in pg as pg doesnt have unsigned
-                    if col_name == "lte_volte_rtp_source_ssrc" or col_name == "lte_volte_rtp_timestamp":
-                        # might need to psql to do first manually if log was already imported using older azm_db_merge:
-                        # alter table all_logs.lte_volte_rtp_msg alter column lte_volte_rtp_source_ssrc type bigint;
-                        # alter table all_logs.lte_volte_rtp_msg alter column lte_volte_rtp_timestamp type bigint;
-
-                        col_type = "bigint"                
-                    #######################
-
-                    is_already_in_table = col_name in remote_column_names
-                    dprint("local_col_name: " + col_name +
-                           " col_type: " + col_type +
-                           " - is_already_in_table: "+str(is_already_in_table))
-                    if (not is_already_in_table):
-                        local_columns_not_in_remote.append(
-                            ' "{}" {}'.format(col_name, col_type))
-                    # TODO: handle if different type?
-
-                n_cols_to_add = len(local_columns_not_in_remote)
-
-                if (n_cols_to_add == 0):
-                    pass
-                    #dprint("n_cols_to_add == 0 - no need to alter table")
-                else:
-                    print "n_cols_to_add: " + str(n_cols_to_add) + " - need to alter table - add cols:" + str(local_columns_not_in_remote) + "\nremote_cols:\n"+str(remote_columns)
-                    # example: ALTER TABLE dbo.doc_exa ADD column_b VARCHAR(20) NULL, column_c INT NULL ; 
-                    alter_str = "ALTER TABLE \"{}\" ".format(table_name)
-                    alter_cols = ""                
-
-                    for new_col in local_columns_not_in_remote:
-                        # not first
-                        prefix = ""
-                        if (alter_cols != ""):
-                            prefix = ", "
-                        alter_cols = alter_cols + prefix + " ADD " + new_col
-
-                    alter_str = alter_str + alter_cols + ";"
-
-                    sqlstr = sql_adj_line(alter_str)
-                    print "execute alter_str: " + sqlstr
-                    exec_creatept_or_alter_handle_concurrency(sqlstr)
-
-                    # re-get remote cols
                     remote_columns = get_remote_columns(args, table_name)
                     remote_column_names = get_col_names(remote_columns)
-                    print("get_remote_columns after alter: "+str(remote_column_names))
+
+                    if (len(remote_columns) == 0):
+                        raise Exception("FATAL: failed to parse/list remote columns")
+
+
+
+                    # now get local columns that are not in remote
+
+                    local_columns_not_in_remote = []
+
+                    for col in local_columns:
+                        col_name = col[0]
+                        col_type = col[1]
+
+                        ####### quickfix: col_type override for unsigned int32 cols from sqlite (bindLong already) - conv to bigint in pg as pg doesnt have unsigned
+                        if col_name == "lte_volte_rtp_source_ssrc" or col_name == "lte_volte_rtp_timestamp":
+                            # might need to psql to do first manually if log was already imported using older azm_db_merge:
+                            # alter table all_logs.lte_volte_rtp_msg alter column lte_volte_rtp_source_ssrc type bigint;
+                            # alter table all_logs.lte_volte_rtp_msg alter column lte_volte_rtp_timestamp type bigint;
+
+                            col_type = "bigint"                
+                        #######################
+
+                        is_already_in_table = col_name in remote_column_names
+                        dprint("local_col_name: " + col_name +
+                               " col_type: " + col_type +
+                               " - is_already_in_table: "+str(is_already_in_table))
+                        if (not is_already_in_table):
+                            local_columns_not_in_remote.append(
+                                ' "{}" {}'.format(col_name, col_type))
+                        # TODO: handle if different type?
+
+                    n_cols_to_add = len(local_columns_not_in_remote)
+
+                    if (n_cols_to_add == 0):
+                        pass
+                        #dprint("n_cols_to_add == 0 - no need to alter table")
+                    else:
+                        print "n_cols_to_add: " + str(n_cols_to_add) + " - need to alter table - add cols:" + str(local_columns_not_in_remote) + "\nremote_cols:\n"+str(remote_columns)
+                        # example: ALTER TABLE dbo.doc_exa ADD column_b VARCHAR(20) NULL, column_c INT NULL ; 
+                        alter_str = "ALTER TABLE \"{}\" ".format(table_name)
+                        alter_cols = ""                
+
+                        for new_col in local_columns_not_in_remote:
+                            # not first
+                            prefix = ""
+                            if (alter_cols != ""):
+                                prefix = ", "
+                            alter_cols = alter_cols + prefix + " ADD " + new_col
+
+                        alter_str = alter_str + alter_cols + ";"
+
+                        sqlstr = sql_adj_line(alter_str)
+                        print "execute alter_str: " + sqlstr
+                        exec_creatept_or_alter_handle_concurrency(sqlstr)
+
+                        # re-get remote cols
+                        remote_columns = get_remote_columns(args, table_name)
+                        remote_column_names = get_col_names(remote_columns)
+                        print("get_remote_columns after alter: "+str(remote_column_names))
+                else:
+                    print("args['need_check_remote_cols']", args['need_check_remote_cols'], "so no need to do alter check")
 
             else:
                 raise Exception("FATAL: create table error - : \nemsg:\n "+emsg+" \nsqlstr:\n"+sqlstr)
@@ -1201,56 +1204,57 @@ def create(args, line):
                 return True
 
 
-        # create fmt format file for that table
-        """        
-        generate format file:
-        https://msdn.microsoft.com/en-us/library/ms178129.aspx
-        
-        format file contents:
-        https://msdn.microsoft.com/en-us/library/ms191479(v=sql.110).aspx                
-        """
-        
-        n_local_cols = len(local_column_names)
-        
-        fmt = open(table_dump_format_fp,"w")
-        fmt.write("11.0\n") # ver - 11.0 = SQL Server 2012
-        fmt.write(str(n_local_cols)+"\n") # n cols
-        
-        host_field_order = 0 # dyn gen - first inc wil get it to 1
-        host_file_data_type = "SQLCHAR"
-        prefix_length = 0
-        host_file_data_length = 0 # When a delimited text file having a prefix length of 0 and a terminator is imported, the field-length value is ignored, because the storage space used by the field equals the length of the data plus the terminator
-        terminator = None # dyn gen
-        server_col_order = None # dyn gen
-        server_col_name = None # dyn gen
-        col_coalition = ""
-        
-        for col in local_column_names:
-            host_field_order = host_field_order + 1
-            if (n_local_cols == host_field_order): #last
-                terminator = azm_db_constants.BULK_INSERT_LINE_SEPARATOR_PARAM
-            else:
-                terminator = azm_db_constants.BULK_INSERT_COL_SEPARATOR_PARAM
-            if not table_name.startswith("wifi_scanned"):
-                #dprint("remote_column_names: "+str(remote_column_names))
-                pass
-            #dprint("col: "+str(col))
-            server_col_order = remote_column_names.index(col) + 1 # not 0 based
-            server_col_name = col # always same col name
-            fmt.write(
-                    '{}\t{}\t{}\t{}\t"{}"\t{}\t"{}"\t"{}"\n'.format(
-                        host_field_order,
-                        host_file_data_type,
-                        prefix_length,
-                        host_file_data_length,
-                        terminator,
-                        server_col_order,
-                        server_col_name,
-                        col_coalition
+        if args['target_db_type'] == 'mssql':
+            # create fmt format file for that table
+            """        
+            generate format file:
+            https://msdn.microsoft.com/en-us/library/ms178129.aspx
+
+            format file contents:
+            https://msdn.microsoft.com/en-us/library/ms191479(v=sql.110).aspx                
+            """
+
+            n_local_cols = len(local_column_names)
+
+            fmt = open(table_dump_format_fp,"w")
+            fmt.write("11.0\n") # ver - 11.0 = SQL Server 2012
+            fmt.write(str(n_local_cols)+"\n") # n cols
+
+            host_field_order = 0 # dyn gen - first inc wil get it to 1
+            host_file_data_type = "SQLCHAR"
+            prefix_length = 0
+            host_file_data_length = 0 # When a delimited text file having a prefix length of 0 and a terminator is imported, the field-length value is ignored, because the storage space used by the field equals the length of the data plus the terminator
+            terminator = None # dyn gen
+            server_col_order = None # dyn gen
+            server_col_name = None # dyn gen
+            col_coalition = ""
+
+            for col in local_column_names:
+                host_field_order = host_field_order + 1
+                if (n_local_cols == host_field_order): #last
+                    terminator = azm_db_constants.BULK_INSERT_LINE_SEPARATOR_PARAM
+                else:
+                    terminator = azm_db_constants.BULK_INSERT_COL_SEPARATOR_PARAM
+                if not table_name.startswith("wifi_scanned"):
+                    #dprint("remote_column_names: "+str(remote_column_names))
+                    pass
+                #dprint("col: "+str(col))
+                server_col_order = remote_column_names.index(col) + 1 # not 0 based
+                server_col_name = col # always same col name
+                fmt.write(
+                        '{}\t{}\t{}\t{}\t"{}"\t{}\t"{}"\t"{}"\n'.format(
+                            host_field_order,
+                            host_file_data_type,
+                            prefix_length,
+                            host_file_data_length,
+                            terminator,
+                            server_col_order,
+                            server_col_name,
+                            col_coalition
+                            )
                         )
-                    )
-        fmt.flush()
-        fmt.close()
+            fmt.flush()
+            fmt.close()
         
         # both dump csv and format fmt files are ready        
         # execute bulk insert sql now

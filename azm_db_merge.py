@@ -545,6 +545,7 @@ def check_azm_azq_app_version(args):
         type_, value_, traceback_ = sys.exc_info()
         exstr = traceback.format_exception(type_, value_, traceback_)
         print "WARNING: check azm app version exception:", exstr
+    return outstr
 
 
 def mv_azm_to_target_folder(args):
@@ -607,7 +608,32 @@ def process_azm_file(args):
             mv_azm_to_target_folder(args)
             return 0
             
-        check_azm_azq_app_version(args)
+        app_ver = check_azm_azq_app_version(args)
+        print "app_ver:", app_ver
+        assert app_ver
+        args['app_ver'] = app_ver
+        args['app_ver_newer_than_in_pg'] = False
+        args['need_check_remote_cols'] = True
+        try:
+            import redis
+            redis_cache = redis.Redis(host='redis', port=6379)            
+            pg_newest_azm_app_ver = redis_cache.get("pg_newest_azm_app_ver")
+            print "pg_newest_azm_app_ver:", pg_newest_azm_app_ver
+            if pg_newest_azm_app_ver:
+                if app_ver > pg_newest_azm_app_ver:
+                    print "case: pg_newest_azm_app_ver and (app_ver > pg_newest_azm_app_ver)"
+                    args['app_ver_newer_than_in_pg'] = True
+                    args['need_check_remote_cols'] = args['app_ver_newer_than_in_pg']
+                else:
+                    print "NOT case: pg_newest_azm_app_ver and (app_ver > pg_newest_azm_app_ver)"
+                    args['app_ver_newer_than_in_pg'] = False
+                    args['need_check_remote_cols'] = args['app_ver_newer_than_in_pg']
+        except:
+            type_, value_, traceback_ = sys.exc_info()
+            exstr = str(traceback.format_exception(type_, value_, traceback_))
+            print "redis check pg_newest_azm_app_ver excepition:", exstr
+        print "args['app_ver_newer_than_in_pg']:", args['app_ver_newer_than_in_pg']
+        print "args['need_check_remote_cols']:", args['need_check_remote_cols']
         
         g_check_and_dont_create_if_empty = args['check_and_dont_create_if_empty']
         use_popen_mode = not args['dump_to_file_mode']
@@ -683,7 +709,7 @@ def process_azm_file(args):
             ret = call(cmd, shell=False)
             print "import ret: "+str(ret)
             if (ret == 0):
-                print( "\n=== SUCCESS - import completed in %s seconds" % (time.time() - proc_start_time) )
+                print( "\n=== SUCCESS - import completed in %s seconds" % (time.time() - proc_start_time) )                
                 if debug_helpers.debug == 1 or args['keep_temp_dir']:
                     print "debug mode keep_tmp_dir:", dir_processing_azm
                 else:
@@ -815,6 +841,21 @@ def process_azm_file(args):
         operation = "merge/import"
         if (args['unmerge']):
             operation = "unmerge/delete"
+        else:
+            # set "pg_newest_azm_app_ver" in redis
+            try:
+                import redis
+                redis_cache = redis.Redis(host='redis', port=6379)
+                if args['app_ver_newer_than_in_pg'] or redis_cache.get("pg_newest_azm_app_ver") is None:
+                    print 'need do redis_cache set("pg_newest_azm_app_ver")'
+                    redis_cache.set("pg_newest_azm_app_ver", args['app_ver'])
+                else:
+                    print 'no need do redis_cache set("pg_newest_azm_app_ver")'
+            except:
+                type_, value_, traceback_ = sys.exc_info()
+                exstr = str(traceback.format_exception(type_, value_, traceback_))
+                print "redis set pg_newest_azm_app_ver excepition:", exstr
+
             
         if (n_lines_parsed != 0):
             print( "\n=== SUCCESS - %s completed in %s seconds - tatal n_lines_parsed %d (not including bulk-inserted-table-content-lines)" % (operation, time.time() - proc_start_time, n_lines_parsed) )

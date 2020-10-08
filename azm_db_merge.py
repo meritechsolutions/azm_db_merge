@@ -26,8 +26,21 @@ import uuid
 import traceback
 import fnmatch
 import hashlib
-from datetime import datetime
 from datetime import timedelta
+from datetime import datetime
+from datetime import tzinfo
+class timezone(tzinfo):
+    """UTC"""
+    offset_seconds = None
+    def __init__(self, offset_seconds):
+        self.offset_seconds = offset_seconds
+    def utcoffset(self, dt):
+        return timedelta(seconds=self.offset_seconds)
+    def tzname(self, dt):
+        return "custom_timezone_offset_seconds_{}".format(self.offset_seconds)
+    def dst(self, dt):
+        return timedelta(seconds=self.offset_seconds)
+# https://stackoverflow.com/questions/51913210/python-script-with-timezone-fails-when-back-ported-to-python-2-7
 
 # global vars
 g_target_db_types = ['postgresql','mssql','sqlite3']
@@ -746,10 +759,26 @@ def process_azm_file(args):
         outstr = subprocess.check_output(cmd)
         log_hash = outstr.strip()
         args['log_hash'] = long(log_hash)
-        ori_log_hash_datetime =  datetime.fromtimestamp(args['log_hash'] & 0xffffffff)  # log_hash lower 32 bits is the timestamp
+        print "args['log_hash']:", args['log_hash']
+
+        sqlstr = "select log_timezone_offset from logs limit 1"
+        cmd = [args['sqlite3_executable'],args['file'],sqlstr]
+        print "call cmd:", cmd
+        outstr = subprocess.check_output(cmd)
+        tzoff = outstr.strip()
+        args['log_timezone_offset'] = long(tzoff)  # in millis
+        print "args['log_timezone_offset']:", args['log_timezone_offset']
+        
+        ori_log_hash_datetime =  datetime.fromtimestamp(
+            (args['log_hash'] & 0xffffffff),
+            timezone(args['log_timezone_offset']/1000)
+        )  # log_hash lower 32 bits is the timestamp
         args['ori_log_hash_datetime'] = ori_log_hash_datetime
+        print "args['ori_log_hash_datetime']:", args['ori_log_hash_datetime']
+        
         log_hash_ym_str = ori_log_hash_datetime.strftime('%Y_%m')
         args['log_hash_ym_str'] = log_hash_ym_str
+        print "args['log_hash_ym_str']:", args['log_hash_ym_str']
 
         if log_hash == 0:
             raise Exception("FATAL: invalid log_hash == 0 case")

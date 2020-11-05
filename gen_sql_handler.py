@@ -912,8 +912,8 @@ def create(args, line):
             pre = " "
             post = ""
             if col_type == "geometry" or (g_is_postgre and col_type == "bytea") or (g_is_ms and col_type.startswith("varbinary")):
-                pre = " hex("
-                post = ")"
+                pre = " nullif(hex("
+                post = "),'')"
                 if col_name == "geom":
                     pass
                     #geom_col_index = i
@@ -1006,8 +1006,11 @@ def create(args, line):
                 with open(table_dump_fp_adj,"wb") as nf:  # wb required for windows so that \n is 0x0A - otherwise \n will be 0x0D 0x0A and doest go with our fmt file and only 1 row will be inserted per table csv in bulk inserts...
                     while True:
                         ofl = of.readline()
+
+                        '''
                         if g_is_postgre:
                             ofl = ofl.replace(',""',',')  # keep this legacy code for postgres mode code jus to be sure, although we already did nullif checks during sqlite csv dunp...
+                        '''
 
                         """ no need to check this, only old stale thread versions would have these cases and will have other cases too so let it crash in all those cases
                         if ofl.strip() == all_cols_null_line:

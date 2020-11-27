@@ -928,7 +928,7 @@ def create(args, line):
                 col_name = "substr(gsm_bsic, 0, 6) as gsm_bsic"  # limit to 5 char len (6 is last index excluding)
             elif col_name == "android_cellid_from_cellfile":
                 col_name = "cast(android_cellid_from_cellfile as int) as android_cellid_from_cellfile"  # type cast required to remove non-int in cellfile data
-            elif col_name.endswith("duration"):                
+            elif col_name.endswith("duration") or col_name.endswith("time"):                
                 # many _duration cols in detected_radion_voice_call_session and in pp_ tables have wrong types or even has right type but values came as "" so would be ,"" in csv which postgres and pyarrow wont allow for double/float/numeric cols - check by col_name only is faster than nullif() on all numericols - as most cases are these _duration cols only
                 col_name = "nullif({},'') as {}".format(col_name, col_name)
             elif table_name == "nr_cell_meas":
@@ -945,7 +945,7 @@ def create(args, line):
             col_select = col_select + pre + col_name + post            
             i = i + 1
         
-        #dprint("col_select: "+col_select)
+        dprint("col_select: "+col_select)
                 
         if g_is_ms:
             ret = call(
@@ -1007,7 +1007,7 @@ def create(args, line):
                     while True:
                         ofl = of.readline()
 
-                        '''
+                        ''' this causes python test_browse_performance_timing.py to fail as its json got changed
                         if g_is_postgre:
                             ofl = ofl.replace(',""',',')  # keep this legacy code for postgres mode code jus to be sure, although we already did nullif checks during sqlite csv dunp...
                         '''

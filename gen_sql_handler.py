@@ -733,10 +733,18 @@ def create(args, line):
 
             if g_is_postgre:
                 with g_conn:
-                    g_cursor.execute("select * from information_schema.tables where table_schema=%s and table_name=%s", (args["pg_schema"],table_name,))
+                    #too slow and high cpu: g_cursor.execute("select * from information_schema.tables where table_schema=%s and table_name=%s", (args["pg_schema"],table_name,))
+                    g_cursor.execute("""
+                    SELECT FROM pg_catalog.pg_class c
+                        JOIN   pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+                        WHERE  n.nspname = %s
+                        AND    c.relname = %s
+                        AND    c.relkind = 'r'""" , (args["pg_schema"],table_name,))
                     if bool(g_cursor.rowcount):
-                        #print "omit already existing table - raise exception to check columns instead"
+                        print("omit create already existing 'logs' table - raise exception to check columns instead")
                         raise Exception("table {} already exists - no need to create".format(table_name))
+                    else:
+                        print("table not exists")
 
             ret = None
             # use with for auto rollback() on g_conn on expected fails like already exists
@@ -761,7 +769,7 @@ def create(args, line):
                 " already exists" in emsg):
                 if args['need_check_remote_cols']:
                     print("args['need_check_remote_cols']", args['need_check_remote_cols'], "so must do alter check")
-                    dprint("""This table already exists -
+                    print("""This table already exists -
                     checking if all local columns already exist in remote
                     - otherwise will add each missing cols to
                     remote table before inserting to it.""")
@@ -856,14 +864,19 @@ def create(args, line):
                     pltn = "{}.{}".format(schema_per_month_name, ntn)
                     per_month_table_already_exists = False
                     with g_conn:
-                        check_sql = "select * from information_schema.tables where table_schema='{}' and table_name='{}'".format(schema_per_month_name, ntn)
-                        #print "check_sql:", check_sql
+                        # too slow and high cpu check_sql = "select * from information_schema.tables where table_schema='{}' and table_name='{}'".format(schema_per_month_name, ntn)
+                        check_sql = """SELECT FROM pg_catalog.pg_class c
+                        JOIN   pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+                        WHERE  n.nspname = '{}'
+                        AND    c.relname = '{}'
+                        AND    c.relkind = 'r'""".format(schema_per_month_name, ntn)   
+                        print "check_sql partition of table exists or not:", check_sql
                         g_cursor.execute(check_sql)
                         if bool(g_cursor.rowcount):
                             per_month_table_already_exists = True
 
                     if per_month_table_already_exists:
-                        #print "omit create already existing per_month table:", pltn
+                        print "omit create already existing per_month table:", pltn
                         pass
                     else:
                         print "NOT omit create already existing per_month table:", pltn

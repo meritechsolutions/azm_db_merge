@@ -252,14 +252,14 @@ def dump_db_to_sql(dir_processing_azm):
         ".schema" if (is_dump_schema_only_for_target_db_type(args)) else ".dump"
     ]
      
-    print "cmd: ",cmd
+    print("cmd: ",cmd)
     ret = call(cmd, shell=False)
-    print "conv ret: "+str(ret)
+    print("conv ret: "+str(ret))
     if (ret != 0):
-        print "dump db to {} file failed - ABORT".format(dumped_sql_fp)
+        print("dump db to {} file failed - ABORT".format(dumped_sql_fp))
         return None
     
-    print "dump db to {} file success".format(dumped_sql_fp)
+    print("dump db to {} file success".format(dumped_sql_fp))
     return dumped_sql_fp
 
 # global vars for handle_sql3_dump_line
@@ -307,7 +307,7 @@ def handle_sql3_dump_line(args, line):
         g_create_buf += line.strip()
         if line.strip().endswith(");"):
             line = g_create_buf
-            print "multi line create END"  # \ng_is_in_create final line:", line
+            print("multi line create END")  # \ng_is_in_create final line:", line
         else:
             return True
         
@@ -363,9 +363,9 @@ def handle_sql3_dump_line(args, line):
                 print "WARNING: delete pre y2k rows from table failed exception:", se
         '''
 
-        print("\nprocessing: create/alter/insert for table_name: "+table_name)
+        print(("\nprocessing: create/alter/insert for table_name: "+table_name))
         
-        print "processing create at handler module..." # always create - flag override                
+        print("processing create at handler module...") # always create - flag override                
         handle_ret = g_create_function(args, line)
         
         
@@ -402,9 +402,9 @@ def handle_sql3_dump_line(args, line):
 def unzip_azm_to_tmp_folder(args):         
     
     dprint("unzip_azm_to_tmp_folder 0")
-    print "args['azm_file']: "+args['azm_file']
+    print("args['azm_file']: "+args['azm_file'])
     azm_fp = os.path.abspath(args['azm_file'])
-    print "azm_fp: "+azm_fp
+    print("azm_fp: "+azm_fp)
     
     if os.path.isfile(azm_fp):
         pass
@@ -412,12 +412,12 @@ def unzip_azm_to_tmp_folder(args):
         raise Exception("INVALID: - azm file does not exist at given path: "+str(azm_fp)+" - ABORT")        
     
     dir_azm_unpack = os.path.dirname(azm_fp)
-    print "dir_azm_unpack: "+dir_azm_unpack
+    print("dir_azm_unpack: "+dir_azm_unpack)
     azm_name_no_ext = os.path.splitext(os.path.basename(azm_fp))[0]
-    print "azm_name_no_ext: "+azm_name_no_ext
+    print("azm_name_no_ext: "+azm_name_no_ext)
     if 'TMP_GEN_PATH' in os.environ:
         dir_azm_unpack = os.environ['TMP_GEN_PATH']
-        print "dir_azm_unpack using TMP_GEN_PATH:", dir_azm_unpack
+        print("dir_azm_unpack using TMP_GEN_PATH:", dir_azm_unpack)
     dir_processing_azm = os.path.join(dir_azm_unpack, "tmp_azm_db_merge_"+str(uuid.uuid4())+"_"+azm_name_no_ext.replace(" ","-")) # replace 'space' in azm file name
     args['dir_processing_azm'] = dir_processing_azm
     
@@ -431,7 +431,7 @@ def unzip_azm_to_tmp_folder(args):
         if ("cannot find the path specified" in estr or "No such file or" in estr):
             pass
         else:
-            print("rmtree dir_processing_azm: "+str(e))
+            print(("rmtree dir_processing_azm: "+str(e)))
             raise e
     
     dprint("unzip_azm_to_tmp_folder 2")
@@ -479,19 +479,19 @@ def unzip_azm_to_tmp_folder(args):
         '''
         
         if args['get_schema_shasum_and_exit']:
-            print "get_schema_shasum_and_exit start"
+            print("get_schema_shasum_and_exit start")
             sha1 = hashlib.sha1()
             #print "get_schema_shasum_and_exit 1"
             dbfile = os.path.join(dir_processing_azm,"azqdata.db")
             #print "get_schema_shasum_and_exit 2"
             cmd = [args['sqlite3_executable'],dbfile,".schema"]
-            print "call cmd:", cmd
+            print("call cmd:", cmd)
             schema = subprocess.check_output(cmd)
             #print "get_schema_shasum_and_exit 3"
             sha1.update(schema)
             #print "get_schema_shasum_and_exit 4"
-            print str(sha1.hexdigest())+" is the sha1 for the schema of azqdata.db inside azm: "+args['azm_file']
-            print "get_schema_shasum_and_exit done"
+            print(str(sha1.hexdigest())+" is the sha1 for the schema of azqdata.db inside azm: "+args['azm_file'])
+            print("get_schema_shasum_and_exit done")
             azm.close()
             cleanup_tmp_dir(dir_processing_azm)
             exit(0)
@@ -512,9 +512,9 @@ def unzip_azm_to_tmp_folder(args):
 
 def cleanup_tmp_dir(dir_processing_azm):
     # clear tmp processing folder
-    attempts = range(5) # 0 to 4 
+    attempts = list(range(5)) # 0 to 4 
     imax = len(attempts)
-    print "cleanup_tmp_dir: ",dir_processing_azm
+    print("cleanup_tmp_dir: ",dir_processing_azm)
     if dir_processing_azm != None and os.path.exists(dir_processing_azm) and os.path.isdir(dir_processing_azm):
         pass
     else:
@@ -527,7 +527,7 @@ def cleanup_tmp_dir(dir_processing_azm):
             # print("cleanup tmp_processing_ dir done.")
             
         except Exception as e:
-            print("warning: attempt %d/%d - failed to delete tmp dir: %s - dir_processing_azm: %s" % (i, imax, e,dir_processing_azm))
+            print(("warning: attempt %d/%d - failed to delete tmp dir: %s - dir_processing_azm: %s" % (i, imax, e,dir_processing_azm)))
             time.sleep(0.01) # sleep 10 millis
             pass
 
@@ -539,12 +539,12 @@ def check_azm_azq_app_version(args):
     MIN_APP_V2 = 587
     sqlstr = "select log_app_version from logs" # there is always only 1 ver of AZENQOS app for 1 azm - and normally 1 row of logs per azm too - but limit just in-case to be future-proof 
     cmd = [args['sqlite3_executable'],args['file'],sqlstr]
-    print "call cmd:", cmd
+    print("call cmd:", cmd)
     outstr = subprocess.check_output(cmd).strip()
     try:
         args["azm_apk_version"] = "0.0.0"
         outstr = outstr.replace("v","") # replace 'v' prefix - like "v3.0.562" outstr
-        print "azm app version outstr:", outstr
+        print("azm app version outstr:", outstr)
         parts = outstr.split(".")
         v0 = int(parts[0]) * 1000 * 1000
         v1 = int(parts[1]) * 1000
@@ -553,11 +553,11 @@ def check_azm_azq_app_version(args):
         if (args["azm_apk_version"] >= MIN_APP_V0*1000*1000 + MIN_APP_V1*1000 + MIN_APP_V2):
             pass
         else:
-            print "WARNING: azm too old - azm file must be from AZENQOS apps with versions {}.{}.{} or newer.".format(MIN_APP_V0,MIN_APP_V1,MIN_APP_V2)
+            print("WARNING: azm too old - azm file must be from AZENQOS apps with versions {}.{}.{} or newer.".format(MIN_APP_V0,MIN_APP_V1,MIN_APP_V2))
     except:
         type_, value_, traceback_ = sys.exc_info()
         exstr = traceback.format_exception(type_, value_, traceback_)
-        print "WARNING: check azm app version exception:", exstr
+        print("WARNING: check azm app version exception:", exstr)
     return outstr
 
 
@@ -574,7 +574,7 @@ def mv_azm_to_target_folder(args):
             os.remove(target_fp+"_output.txt")
         except:
             pass
-        print "move_imported_azm_files_to_folder: mv {} to {}".format(azm_fp,target_fp)
+        print("move_imported_azm_files_to_folder: mv {} to {}".format(azm_fp,target_fp))
         os.rename(azm_fp, target_fp)
         try:
             os.rename(azm_fp+"_output.txt", target_fp+"_output.txt")
@@ -595,13 +595,13 @@ def process_azm_file(args):
         dry_str = args['dry']
         dry_str = dry_str.strip().lower()
         dry_mode = (dry_str == "true")
-        print "dry_mode setting: ",dry_mode
+        print("dry_mode setting: ",dry_mode)
 
         
         if dry_mode:
-            print "dry_mode - dont unzip azm for azqdata.db - let preprocess func handle itself"
+            print("dry_mode - dont unzip azm for azqdata.db - let preprocess func handle itself")
         else:
-            print "normal import mode"
+            print("normal import mode")
             dir_processing_azm = unzip_azm_to_tmp_folder(args)
             args['dir_processing_azm'] = dir_processing_azm
 
@@ -609,20 +609,20 @@ def process_azm_file(args):
         
         if not preprocess_module is None:
             preprocess_module = preprocess_module.replace(".py","",1)
-            print "get preprocess module: ", preprocess_module
+            print("get preprocess module: ", preprocess_module)
             importlib.import_module(preprocess_module)
             mod = sys.modules[preprocess_module]
             preprocess = getattr(mod, 'preprocess')
-            print "exec preprocess module > preprocess func"
+            print("exec preprocess module > preprocess func")
             preprocess(dir_processing_azm,args['azm_file'])
 
         if dry_mode:
-            print "dry_mode - end here"
+            print("dry_mode - end here")
             mv_azm_to_target_folder(args)
             return 0
             
         app_ver = check_azm_azq_app_version(args)
-        print "app_ver:", app_ver
+        print("app_ver:", app_ver)
         assert app_ver
         args['app_ver'] = app_ver
         args['app_ver_newer_than_in_pg'] = False
@@ -631,22 +631,22 @@ def process_azm_file(args):
             import redis
             redis_cache = redis.Redis(host='redis', port=6379)            
             pg_newest_azm_app_ver = redis_cache.get("pg_newest_azm_app_ver")
-            print "pg_newest_azm_app_ver:", pg_newest_azm_app_ver
+            print("pg_newest_azm_app_ver:", pg_newest_azm_app_ver)
             if pg_newest_azm_app_ver:
                 if app_ver > pg_newest_azm_app_ver:
-                    print "case: pg_newest_azm_app_ver and (app_ver > pg_newest_azm_app_ver)"
+                    print("case: pg_newest_azm_app_ver and (app_ver > pg_newest_azm_app_ver)")
                     args['app_ver_newer_than_in_pg'] = True
                     args['need_check_remote_cols'] = args['app_ver_newer_than_in_pg']
                 else:
-                    print "NOT case: pg_newest_azm_app_ver and (app_ver > pg_newest_azm_app_ver)"
+                    print("NOT case: pg_newest_azm_app_ver and (app_ver > pg_newest_azm_app_ver)")
                     args['app_ver_newer_than_in_pg'] = False
                     args['need_check_remote_cols'] = args['app_ver_newer_than_in_pg']
         except:
             type_, value_, traceback_ = sys.exc_info()
             exstr = str(traceback.format_exception(type_, value_, traceback_))
-            print "redis check pg_newest_azm_app_ver excepition:", exstr
-        print "args['app_ver_newer_than_in_pg']:", args['app_ver_newer_than_in_pg']
-        print "args['need_check_remote_cols']:", args['need_check_remote_cols']
+            print("redis check pg_newest_azm_app_ver excepition:", exstr)
+        print("args['app_ver_newer_than_in_pg']:", args['app_ver_newer_than_in_pg'])
+        print("args['need_check_remote_cols']:", args['need_check_remote_cols'])
         
         g_check_and_dont_create_if_empty = args['check_and_dont_create_if_empty']
         use_popen_mode = not args['dump_to_file_mode']
@@ -657,13 +657,13 @@ def process_azm_file(args):
             else:
                 use_popen_mode = False # dump to .sql file for .read
 
-        print "NOTE: now we delete pre y2k rows and if it was popen then the delete would error as 'database is locked' so always dump schema to sql - so force set use_popen_mode = False"
+        print("NOTE: now we delete pre y2k rows and if it was popen then the delete would error as 'database is locked' so always dump schema to sql - so force set use_popen_mode = False")
         use_popen_mode = False
 
         if (use_popen_mode):
-            print "using live in-memory pipe of sqlite3 dump output parse mode"
+            print("using live in-memory pipe of sqlite3 dump output parse mode")
         else:
-            print "using full dump of sqlite3 to file mode"
+            print("using full dump of sqlite3 to file mode")
         
         dump_process = None
         dumped_sql_fp = None
@@ -684,7 +684,7 @@ def process_azm_file(args):
         # sqlite3 merge is simple run .read on args['dumped_sql_fp']
         if args['target_db_type'] == "sqlite3":
             is_target_exists = os.path.isfile(args['target_sqlite3_file'])
-            print "sqlite3 - import to {} from {}".format(args['target_sqlite3_file'], dumped_sql_fp)
+            print("sqlite3 - import to {} from {}".format(args['target_sqlite3_file'], dumped_sql_fp))
 
             dumped_sql_fp_adj = dumped_sql_fp + "_adj.sql"
             of = open(dumped_sql_fp,"r")
@@ -718,19 +718,19 @@ def process_azm_file(args):
                 args['target_sqlite3_file'],
                 ".read {}".format(dumped_sql_fp_adj.replace("\\", "\\\\"))
                 ]
-            print "cmd: ",cmd
+            print("cmd: ",cmd)
             ret = call(cmd, shell=False)
-            print "import ret: "+str(ret)
+            print("import ret: "+str(ret))
             if (ret == 0):
-                print( "\n=== SUCCESS - import completed in %s seconds" % (time.time() - proc_start_time) )                
+                print(( "\n=== SUCCESS - import completed in %s seconds" % (time.time() - proc_start_time) ))                
                 if debug_helpers.debug == 1 or args['keep_temp_dir']:
-                    print "debug mode keep_tmp_dir:", dir_processing_azm
+                    print("debug mode keep_tmp_dir:", dir_processing_azm)
                 else:
                     cleanup_tmp_dir(dir_processing_azm)
                 return 0
             else:
                 if debug_helpers.debug == 1 or args['keep_temp_dir']:
-                    print "debug mode keep_tmp_dir:", dir_processing_azm
+                    print("debug mode keep_tmp_dir:", dir_processing_azm)
                 else:
                     cleanup_tmp_dir(dir_processing_azm)
 
@@ -740,7 +740,7 @@ def process_azm_file(args):
             
         # now we use bulk insert done at create/commit funcs instead g_insert_function = getattr(mod, 'handle_sqlite3_dump_insert')
             
-        print "### connecting to dbms..."    
+        print("### connecting to dbms...")    
         ret = g_connect_function(args)
         
         if ret == False:
@@ -748,37 +748,37 @@ def process_azm_file(args):
             
         
         if (args['unmerge']):
-            print "### unmerge mode"
+            print("### unmerge mode")
             # unmerge mode would be handled by same check_if_already_merged_function below - the 'unmerge' flag is in args
 
         # check if this azm is already imported/merged in target db (and exit of already imported)
         # get log_hash
         sqlstr = "select log_hash from logs limit 1"
         cmd = [args['sqlite3_executable'],args['file'],sqlstr]
-        print "call cmd:", cmd
+        print("call cmd:", cmd)
         outstr = subprocess.check_output(cmd)
         log_hash = outstr.strip()
-        args['log_hash'] = long(log_hash)
-        print "args['log_hash']:", args['log_hash']
+        args['log_hash'] = int(log_hash)
+        print("args['log_hash']:", args['log_hash'])
 
         sqlstr = "select log_timezone_offset from logs limit 1"
         cmd = [args['sqlite3_executable'],args['file'],sqlstr]
-        print "call cmd:", cmd
+        print("call cmd:", cmd)
         outstr = subprocess.check_output(cmd)
         tzoff = outstr.strip()
-        args['log_timezone_offset'] = long(tzoff)  # in millis
-        print "args['log_timezone_offset']:", args['log_timezone_offset']
+        args['log_timezone_offset'] = int(tzoff)  # in millis
+        print("args['log_timezone_offset']:", args['log_timezone_offset'])
         
         ori_log_hash_datetime =  datetime.fromtimestamp(
             (args['log_hash'] & 0xffffffff),
             timezone(args['log_timezone_offset']/1000)
         )  # log_hash lower 32 bits is the timestamp
         args['ori_log_hash_datetime'] = ori_log_hash_datetime
-        print "args['ori_log_hash_datetime']:", args['ori_log_hash_datetime']
+        print("args['ori_log_hash_datetime']:", args['ori_log_hash_datetime'])
         
         log_hash_ym_str = ori_log_hash_datetime.strftime('%Y_%m')
         args['log_hash_ym_str'] = log_hash_ym_str
-        print "args['log_hash_ym_str']:", args['log_hash_ym_str']
+        print("args['log_hash_ym_str']:", args['log_hash_ym_str'])
 
         if log_hash == 0:
             raise Exception("FATAL: invalid log_hash == 0 case")
@@ -799,10 +799,10 @@ def process_azm_file(args):
             "select strftime('%s', log_start_time) from logs limit 1",
             args
         )
-        print "parse log_start_time:", args['log_start_time']
-        args['log_start_time'] = datetime.fromtimestamp(long(args['log_start_time']))
-        print "args['log_start_time']:", args['log_start_time']
-        print "args['log_start_time_str']:", args['log_start_time_str']
+        print("parse log_start_time:", args['log_start_time'])
+        args['log_start_time'] = datetime.fromtimestamp(int(args['log_start_time']))
+        print("args['log_start_time']:", args['log_start_time'])
+        print("args['log_start_time_str']:", args['log_start_time_str'])
 
         args['log_end_time'] = get_sql_result(
             "select strftime('%s', log_end_time) from logs limit 1",
@@ -816,16 +816,16 @@ def process_azm_file(args):
                 args
             )            
         
-        print "parse log_end_time:", args['log_end_time']
-        args['log_end_time'] = datetime.fromtimestamp(long(args['log_end_time']))
-        print "args['log_end_time']:", args['log_end_time']
-        print "args['log_end_time_str']:", args['log_end_time_str']
+        print("parse log_end_time:", args['log_end_time'])
+        args['log_end_time'] = datetime.fromtimestamp(int(args['log_end_time']))
+        print("args['log_end_time']:", args['log_end_time'])
+        print("args['log_end_time_str']:", args['log_end_time_str'])
 
         args['log_data_min_time'] = args['log_start_time'] - timedelta(hours=48)
-        print "args['log_data_min_time']:", args['log_data_min_time']
+        print("args['log_data_min_time']:", args['log_data_min_time'])
         
         args['log_data_max_time'] = args['log_end_time'] + timedelta(hours=48)
-        print "args['log_data_max_time']:", args['log_data_max_time']
+        print("args['log_data_max_time']:", args['log_data_max_time'])
 
 
         if log_hash == 0:
@@ -853,7 +853,7 @@ def process_azm_file(args):
             dprint("read line: "+line)
             # when EOF is reached, we'd get an empty string
             if (line == ""):
-                print "\nreached end of file/output"
+                print("\nreached end of file/output")
                 break
             else:
                 n_lines_parsed = n_lines_parsed + 1
@@ -861,7 +861,7 @@ def process_azm_file(args):
         
         
         # finally call commit again in case the file didn't have a 'commit' line at the end
-        print "### calling handler's commit func as we've reached the end..."
+        print("### calling handler's commit func as we've reached the end...")
         
         handle_ret = g_commit_function(args, line)
         
@@ -876,18 +876,18 @@ def process_azm_file(args):
                 import redis
                 redis_cache = redis.Redis(host='redis', port=6379)
                 if args['app_ver_newer_than_in_pg'] or redis_cache.get("pg_newest_azm_app_ver") is None:
-                    print 'need do redis_cache set("pg_newest_azm_app_ver")'
+                    print('need do redis_cache set("pg_newest_azm_app_ver")')
                     redis_cache.set("pg_newest_azm_app_ver", args['app_ver'])
                 else:
-                    print 'no need do redis_cache set("pg_newest_azm_app_ver")'
+                    print('no need do redis_cache set("pg_newest_azm_app_ver")')
             except:
                 type_, value_, traceback_ = sys.exc_info()
                 exstr = str(traceback.format_exception(type_, value_, traceback_))
-                print "redis set pg_newest_azm_app_ver excepition:", exstr
+                print("redis set pg_newest_azm_app_ver excepition:", exstr)
 
             
         if (n_lines_parsed != 0):
-            print( "\n=== SUCCESS - %s completed in %s seconds - tatal n_lines_parsed %d (not including bulk-inserted-table-content-lines)" % (operation, time.time() - proc_start_time, n_lines_parsed) )
+            print(( "\n=== SUCCESS - %s completed in %s seconds - tatal n_lines_parsed %d (not including bulk-inserted-table-content-lines)" % (operation, time.time() - proc_start_time, n_lines_parsed) ))
             ret =  0
             mv_azm_to_target_folder(args)
         else:            
@@ -910,7 +910,7 @@ def process_azm_file(args):
             except Exception as x:
                 pass
             
-            print "move the failed_import_azm_files_to_folder: mv {} to {}".format(azm_fp,target_fp)
+            print("move the failed_import_azm_files_to_folder: mv {} to {}".format(azm_fp,target_fp))
             try:
                 os.rename(azm_fp, target_fp)
                 try:
@@ -918,15 +918,15 @@ def process_azm_file(args):
                 except:
                     pass
             except Exception as x:
-                print "WARNING: move_failed_import_azm_files_to_folder failed"
+                print("WARNING: move_failed_import_azm_files_to_folder failed")
                 pass
 
     
-        print "re-raise exception e - ",exstr
+        print("re-raise exception e - ",exstr)
         raise e
     
     finally:
-        print "cleanup start..."
+        print("cleanup start...")
         if (use_popen_mode):
             # clean-up dump process
             try:
@@ -945,24 +945,24 @@ def process_azm_file(args):
             pass
         
         if debug_helpers.debug == 1 or args['keep_temp_dir']:
-            print "debug mode keep_tmp_dir:", dir_processing_azm
+            print("debug mode keep_tmp_dir:", dir_processing_azm)
             pass # keep files for analysis of exceptions in debug mode
         else:
-            print "cleanup_tmp_dir..."
+            print("cleanup_tmp_dir...")
             cleanup_tmp_dir(dir_processing_azm)
     
     return ret
 
 
 def sigterm_handler(_signo, _stack_frame):
-    print "azm_db_merge.py: received SIGTERM - exit(0) now..."
+    print("azm_db_merge.py: received SIGTERM - exit(0) now...")
     sys.exit(0)
     return
 
 
 def get_sql_result(sqlstr, args):
     cmd = [args['sqlite3_executable'],args['file'],sqlstr]
-    print "get_sql_result cmd:", cmd
+    print("get_sql_result cmd:", cmd)
     outstr = subprocess.check_output(cmd)
     result = outstr.strip()
     return result
@@ -972,7 +972,7 @@ if __name__ == '__main__':
 
     #################### Program START
 
-    print infostr
+    print(infostr)
 
     signal.signal(signal.SIGTERM, sigterm_handler)
 
@@ -983,9 +983,9 @@ if __name__ == '__main__':
         args['pg_host'] = args['docker_postgres_server_name']
 
     if (args['unmerge']):
-        print "starting with --unmerge mode"
+        print("starting with --unmerge mode")
 
-    print "checking --sqlite3_executable: ",args['sqlite3_executable']
+    print("checking --sqlite3_executable: ",args['sqlite3_executable'])
     try:
         cmd = [
             args['sqlite3_executable'],
@@ -993,14 +993,14 @@ if __name__ == '__main__':
         ]
         ret = call(cmd, shell=False)
         if ret == 0:
-            print "sqlite3_executable working - OK"
+            print("sqlite3_executable working - OK")
         else:
             raise Exception("Secified (or default) --sqlite3_executable not working - ABORT")
     except Exception as e:
         estr = str(e)
-        print "error - sqlite3 check exception estr: ",estr
+        print("error - sqlite3 check exception estr: ",estr)
         if "The system cannot find the file specified" in estr:
-            print "windows run: can't call specified sqlite3_executable - trying use 'where' to find the default 'sqlite3' executable."
+            print("windows run: can't call specified sqlite3_executable - trying use 'where' to find the default 'sqlite3' executable.")
             outstr = subprocess.check_output(
                 ["cmd.exe",
                  "/c",
@@ -1008,8 +1008,8 @@ if __name__ == '__main__':
                  "sqlite3"
                 ]
             )
-            print "where returned: ",outstr.strip()
-            print "blindly using where return val as sqlite3 path..."
+            print("where returned: ",outstr.strip())
+            print("blindly using where return val as sqlite3 path...")
             args['sqlite3_executable'] = outstr.strip()
             cmd = [
                 args['sqlite3_executable'],
@@ -1017,7 +1017,7 @@ if __name__ == '__main__':
             ]
             ret = call(cmd, shell=False)
             if ret == 0:
-                print "sqlite3_executable working - OK"
+                print("sqlite3_executable working - OK")
             else:
                 raise Exception("Secified (or default) --sqlite3_executable not working - ABORT")
         else:
@@ -1028,7 +1028,7 @@ if __name__ == '__main__':
             ]
             ret = call(cmd, shell=False)
             if ret == 0:
-                print "sqlite3_executable working - OK"
+                print("sqlite3_executable working - OK")
             else:
                 raise Exception("Failed to find sqlite3 - please install sqlite3 and make sure it is in the path first. exception:"+str(e))
 
@@ -1058,16 +1058,16 @@ if __name__ == '__main__':
 
     mod_name = args['target_db_type']
     if args['debug']:
-        print "set_debug 1"
+        print("set_debug 1")
         debug_helpers.set_debug(1)
     else:
-        print "set_debug 0"
+        print("set_debug 0")
         debug_helpers.set_debug(0)
 
     #if  mod_name in ['postgresql','mssql']:
     mod_name = 'gen_sql'
     mod_name = mod_name + "_handler"
-    print "### get module: ", mod_name
+    print("### get module: ", mod_name)
     importlib.import_module(mod_name)
     mod = sys.modules[mod_name]
     #print "module dir: "+str(dir(mod))
@@ -1079,13 +1079,13 @@ if __name__ == '__main__':
     g_close_function = getattr(mod, 'close')
 
     if "," in args['azm_file']:
-        print "found comman in args['azm_file'] - split and use whichever is first present in the list"
+        print("found comman in args['azm_file'] - split and use whichever is first present in the list")
         csv = args['azm_file']
         found = False
         for fp in csv.split(","):
             if os.path.isfile(fp):
                 args['azm_file'] = fp
-                print "using valid azm_file file path:", args['azm_file']
+                print("using valid azm_file file path:", args['azm_file'])
                 found = True
                 break
         if not found:
@@ -1099,7 +1099,7 @@ if __name__ == '__main__':
         if not azm_file_is_folder:
             raise Exception("ABORT: --daemon_mode_rerun_on_folder_after_seconds specified but --azm_file is not a folder.")
         folder_daemon_wait_seconds = int(args['daemon_mode_rerun_on_folder_after_seconds'])
-        print "folder_daemon_wait_seconds: ",folder_daemon_wait_seconds
+        print("folder_daemon_wait_seconds: ",folder_daemon_wait_seconds)
         if folder_daemon_wait_seconds <= 0:
             raise Exception("ABORT: --daemon_mode_rerun_on_folder_after_seconds option must be greater than 0.")
     ori_args = args
@@ -1112,7 +1112,7 @@ if __name__ == '__main__':
         where = "where {} != ''".format(col) # not null and not empty
         sqlstr = "select {} from {} {} order by seqid desc limit 1;".format(col, table, where)
         cmd = [args['sqlite3_executable'],args['file'],sqlstr]
-        print "call cmd:", cmd
+        print("call cmd:", cmd)
         imei = subprocess.check_output(cmd).strip()
         args['imei'] = imei
 
@@ -1126,7 +1126,7 @@ if __name__ == '__main__':
         # check if supplied 'azm_file' is a folder - then iterate over all azms in that folder
         if azm_file_is_folder:
             dir = args['azm_file']
-            print "supplied --azm_file: ",dir," is a directory - get a list of .azm files to process:"
+            print("supplied --azm_file: ",dir," is a directory - get a list of .azm files to process:")
             matches = []
             # recurse as below instead azm_files = glob.glob(os.path.join(dir,"*.azm"))
             # http://stackoverflow.com/questions/2186525/use-a-glob-to-find-files-recursively-in-python
@@ -1138,8 +1138,8 @@ if __name__ == '__main__':
             azm_files = [args['azm_file']]
 
         nazm = len(azm_files)
-        print "n_azm_files to process: {}".format(nazm)
-        print "list of azm files to process: "+str(azm_files)
+        print("n_azm_files to process: {}".format(nazm))
+        print("list of azm files to process: "+str(azm_files))
         iazm = 0
         ifailed = 0
         ret = -1
@@ -1148,31 +1148,31 @@ if __name__ == '__main__':
         for azm in azm_files:
             iazm = iazm + 1
             args['azm_file'] = azm
-            print "## START process azm {}/{}: '{}'".format(iazm, nazm, azm)
+            print("## START process azm {}/{}: '{}'".format(iazm, nazm, azm))
             try: 
                 ret = process_azm_file(args)
                 if (ret != 0):
                     raise Exception("ABORT: process_azm_file failed with ret code: "+str(ret))        
-                print "## DONE process azm {}/{}: '{}' retcode {}".format(iazm, nazm, azm, ret)        
+                print("## DONE process azm {}/{}: '{}' retcode {}".format(iazm, nazm, azm, ret))        
             except Exception as e:
                 ifailed = ifailed + 1
                 had_errors = True
                 type_, value_, traceback_ = sys.exc_info()
                 exstr = traceback.format_exception(type_, value_, traceback_)
-                print "## FAILED: process azm {} failed with below exception:\n(start of exception)\n{}\n{}(end of exception)".format(azm,str(e),exstr)
+                print("## FAILED: process azm {} failed with below exception:\n(start of exception)\n{}\n{}(end of exception)".format(azm,str(e),exstr))
                 if (args['folder_mode_stop_on_first_failure']):
-                    print "--folder_mode_stop_on_first_failure specified - exit now."
+                    print("--folder_mode_stop_on_first_failure specified - exit now.")
                     exit(-9)
 
         if (had_errors == False):
-            print "SUCCESS - operation completed successfully for all azm files (tatal: %d) - in %.03f seconds." % (iazm,  time.time() - process_start_time)
+            print("SUCCESS - operation completed successfully for all azm files (tatal: %d) - in %.03f seconds." % (iazm,  time.time() - process_start_time))
         else:
-            print "COMPLETED WITH ERRORS - operation completed but had encountered errors (tatal: %d, failed: %d) - in %.03f seconds - (use --folder_mode_stop_on_first_failure to stop on first failed azm file)." % (iazm,ifailed, time.time() - process_start_time)
+            print("COMPLETED WITH ERRORS - operation completed but had encountered errors (tatal: %d, failed: %d) - in %.03f seconds - (use --folder_mode_stop_on_first_failure to stop on first failed azm file)." % (iazm,ifailed, time.time() - process_start_time))
         if not folder_daemon:
-            print "exit code:",str(ret)
+            print("exit code:",str(ret))
             exit(ret)
         else:
-            print "*** folder_daemon mode: wait seconds: ",folder_daemon_wait_seconds
+            print("*** folder_daemon mode: wait seconds: ",folder_daemon_wait_seconds)
             for i in range(0,folder_daemon_wait_seconds):
-                print "** folder_daemon mode: waiting ",i,"/",folder_daemon_wait_seconds," seconds"
+                print("** folder_daemon mode: waiting ",i,"/",folder_daemon_wait_seconds," seconds")
                 time.sleep(1)

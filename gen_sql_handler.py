@@ -1016,9 +1016,9 @@ def create(args, line):
             geom_format_in_csv_is_wkb = True            
             start_time = datetime.datetime.now()
             with open(table_dump_fp,"rb") as of:
-                with open(table_dump_fp_adj,"wb") as nf:  # wb required for windows so that \n is 0x0A - otherwise \n will be 0x0D 0x0A and doest go with our fmt file and only 1 row will be inserted per table csv in bulk inserts...
+                with open(table_dump_fp_adj,"w") as nf:  # wb required for windows so that \n is 0x0A - otherwise \n will be 0x0D 0x0A and doest go with our fmt file and only 1 row will be inserted per table csv in bulk inserts...
                     while True:
-                        ofl = of.readline()
+                        ofl = of.readline().decode()
 
                         ''' this causes python test_browse_performance_timing.py to fail as its json got changed
                         if g_is_postgre:
@@ -1195,8 +1195,10 @@ def create(args, line):
                 geom_sr_len = len(geom_sr)
                 pa_array = None
                 if pd.isnull(geom_sr).all():
-                    pa_array = pa.array(geom_sr.values.tolist()+[""]).slice(0, geom_sr_len)  # convert tolist() and add [""] then slice() back to ori len required to avoid pyarrow.lib.ArrowInvalid: Field type did not match data type - see azq_report_gen/test_spark_wkb_exception.py
+                    print("geom_sr null all case")
+                    pa_array = pa.array(geom_sr.values.tolist()+[b'']).slice(0, geom_sr_len)  # convert tolist() and add [""] then slice() back to ori len required to avoid pyarrow.lib.ArrowInvalid: Field type did not match data type - see azq_report_gen/test_spark_wkb_exception.py
                 else:
+                    print("not geom_sr null all case")
                     pa_array = pa.array(geom_sr)
                 assert pa_array is not None
                 padf = padf.set_column(geom_field_index, pa.field("geom", "binary"), pa_array)

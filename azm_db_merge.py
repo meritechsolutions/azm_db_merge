@@ -357,17 +357,18 @@ def handle_sql3_dump_line(args, line):
             cmd = [args['sqlite3_executable'],args['file'],sqlstr]
             #print "call cmd:", cmd
             try:
-                outstr = subprocess.check_output(cmd)
+                outstr = subprocess.check_output(cmd).decode()
                 #print "delete from ret outstr:", outstr
             except Exception as se:
                 print "WARNING: delete pre y2k rows from table failed exception:", se
         '''
 
-        print(("\nprocessing: create/alter/insert for table_name: "+table_name))
-        
-        print("processing create at handler module...") # always create - flag override                
-        handle_ret = g_create_function(args, line)
-        
+        if table_name != "azq_report_gen_preprocess_info":
+            print(("\nprocessing: create/alter/insert for table_name: "+table_name))
+
+            print("processing create at handler module...") # always create - flag override
+            handle_ret = g_create_function(args, line)
+
         
     elif (line.startswith("COMMIT;")):        
         print("\nprocessing: commit")        
@@ -486,7 +487,7 @@ def unzip_azm_to_tmp_folder(args):
             #print "get_schema_shasum_and_exit 2"
             cmd = [args['sqlite3_executable'],dbfile,".schema"]
             print("call cmd:", cmd)
-            schema = subprocess.check_output(cmd)
+            schema = subprocess.check_output(cmd).decode()
             #print "get_schema_shasum_and_exit 3"
             sha1.update(schema)
             #print "get_schema_shasum_and_exit 4"
@@ -540,7 +541,7 @@ def check_azm_azq_app_version(args):
     sqlstr = "select log_app_version from logs" # there is always only 1 ver of AZENQOS app for 1 azm - and normally 1 row of logs per azm too - but limit just in-case to be future-proof 
     cmd = [args['sqlite3_executable'],args['file'],sqlstr]
     print("call cmd:", cmd)
-    outstr = subprocess.check_output(cmd).strip()
+    outstr = subprocess.check_output(cmd).decode().strip()
     try:
         args["azm_apk_version"] = "0.0.0"
         outstr = outstr.replace("v","") # replace 'v' prefix - like "v3.0.562" outstr
@@ -688,10 +689,10 @@ def process_azm_file(args):
 
             dumped_sql_fp_adj = dumped_sql_fp + "_adj.sql"
             of = open(dumped_sql_fp,"r")
-            nf = open(dumped_sql_fp_adj,"wb") # wb required for windows so that \n is 0x0A - otherwise \n will be 0x0D 0x0A and doest go with our fmt file and only 1 row will be inserted per table csv in bulk inserts... 
+            nf = open(dumped_sql_fp_adj,"w") # wb required for windows so that \n is 0x0A - otherwise \n will be 0x0D 0x0A and doest go with our fmt file and only 1 row will be inserted per table csv in bulk inserts...
 
             while True:
-                ofl = of.readline()
+                ofl = of.readline().decode()
                     
                 if ofl == "":
                     break
@@ -756,7 +757,7 @@ def process_azm_file(args):
         sqlstr = "select log_hash from logs limit 1"
         cmd = [args['sqlite3_executable'],args['file'],sqlstr]
         print("call cmd:", cmd)
-        outstr = subprocess.check_output(cmd)
+        outstr = subprocess.check_output(cmd).decode()
         log_hash = outstr.strip()
         args['log_hash'] = int(log_hash)
         print("args['log_hash']:", args['log_hash'])
@@ -764,7 +765,7 @@ def process_azm_file(args):
         sqlstr = "select log_timezone_offset from logs limit 1"
         cmd = [args['sqlite3_executable'],args['file'],sqlstr]
         print("call cmd:", cmd)
-        outstr = subprocess.check_output(cmd)
+        outstr = subprocess.check_output(cmd).decode()
         tzoff = outstr.strip()
         args['log_timezone_offset'] = int(tzoff)  # in millis
         print("args['log_timezone_offset']:", args['log_timezone_offset'])
@@ -847,9 +848,9 @@ def process_azm_file(args):
         n_lines_parsed = 0
         while(True):
             if (use_popen_mode):
-                line = dump_process.stdout.readline()        
+                line = dump_process.stdout.readline().decode()
             else:
-                line = sql_dump_file.readline()
+                line = sql_dump_file.readline().decode()
             dprint("read line: "+line)
             # when EOF is reached, we'd get an empty string
             if (line == ""):
@@ -963,7 +964,7 @@ def sigterm_handler(_signo, _stack_frame):
 def get_sql_result(sqlstr, args):
     cmd = [args['sqlite3_executable'],args['file'],sqlstr]
     print("get_sql_result cmd:", cmd)
-    outstr = subprocess.check_output(cmd)
+    outstr = subprocess.check_output(cmd).decode()
     result = outstr.strip()
     return result
 
@@ -1007,7 +1008,7 @@ if __name__ == '__main__':
                  "where",
                  "sqlite3"
                 ]
-            )
+            ).decode()
             print("where returned: ",outstr.strip())
             print("blindly using where return val as sqlite3 path...")
             args['sqlite3_executable'] = outstr.strip()
@@ -1113,7 +1114,7 @@ if __name__ == '__main__':
         sqlstr = "select {} from {} {} order by seqid desc limit 1;".format(col, table, where)
         cmd = [args['sqlite3_executable'],args['file'],sqlstr]
         print("call cmd:", cmd)
-        imei = subprocess.check_output(cmd).strip()
+        imei = subprocess.check_output(cmd).decode().strip()
         args['imei'] = imei
 
     while(True):

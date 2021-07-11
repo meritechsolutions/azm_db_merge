@@ -1169,18 +1169,22 @@ def create(args, line):
                 # use pandas to decode geom from hex to binary, then extract lat, lon from wkb
                 geom_sr = padf.column(geom_field_index).to_pandas()
                 geom_sr_null_mask = pd.isnull(geom_sr)
+                geom_sr = geom_sr.astype(str)
+                geom_sr.loc[geom_sr_null_mask] = None
                 geom_sr = geom_sr.fillna("")
-                
-                #print 'ori geom_sr.head():', geom_sr.head()
+                print('ori geom_sr.head():', geom_sr.head())
+                print("ori geom_sr_null_mask:", geom_sr_null_mask)                
                 
                 if not geom_format_in_csv_is_wkb:
                     print("geom in csv is in spatialite format - convert to wkb first...")
                     spatialite_geom_sr = geom_sr
                     class_type = "01000020E6100000"
                     endian = "01"  # spatialite_geom_sr.str.slice(start=2, stop=4)
-                    point =  spatialite_geom_sr.str.slice(start=86, stop=118)   # 86 + 16 + 16
+                    point =  spatialite_geom_sr.str.slice(start=86, stop=118)   # 86 + 16 + 16                    
                     geom_sr = endian + class_type + point  # wkb
+                    
                 
+                print("geom_sr:", geom_sr)
                 
                 geom_sr = geom_sr.str.decode("hex")
                 geom_sr[geom_sr_null_mask] = None

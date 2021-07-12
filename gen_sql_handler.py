@@ -1001,7 +1001,7 @@ def create(args, line):
                     dump_cmd,
                     shell=False
                 )
-            #print "dump_cmd:", dump_cmd
+            print("dump_cmd:", dump_cmd)
             #print "dump_cmd ret:", ret
             print("dump_csv duration:", (datetime.datetime.now() - start_time).total_seconds())
 

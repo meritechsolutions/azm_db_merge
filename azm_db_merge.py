@@ -363,11 +363,9 @@ def handle_sql3_dump_line(args, line):
                 print "WARNING: delete pre y2k rows from table failed exception:", se
         '''
 
-        if table_name != "azq_report_gen_preprocess_info":
-            print(("\nprocessing: create/alter/insert for table_name: "+table_name))
-
-            print("processing create at handler module...") # always create - flag override
-            handle_ret = g_create_function(args, line)
+        print(("\nprocessing: create/alter/insert for table_name: "+table_name))
+        print("processing create at handler module...") # always create - flag override
+        handle_ret = g_create_function(args, line)
 
         
     elif (line.startswith("COMMIT;")):        

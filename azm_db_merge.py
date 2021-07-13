@@ -976,6 +976,11 @@ if __name__ == '__main__':
     signal.signal(signal.SIGTERM, sigterm_handler)
 
     args = parse_cmd_args()
+    args["table_operation_stats"] = {
+        "table": [],
+        "operation": [],
+        "duration": []
+    }
     # must be localhost only because now we're using BULK INSERT (or COPY) commands
 
     if args['docker_postgres_server_name'] is not None:
@@ -1168,6 +1173,9 @@ if __name__ == '__main__':
         else:
             print("COMPLETED WITH ERRORS - operation completed but had encountered errors (tatal: %d, failed: %d) - in %.03f seconds - (use --folder_mode_stop_on_first_failure to stop on first failed azm file)." % (iazm,ifailed, time.time() - process_start_time))
         if not folder_daemon:
+            import pandas as pd
+            stats_df = pd.DataFrame(args["table_operation_stats"]).sort_values("duration", ascending=False)
+            print("stats_df.head(20):\n", stats_df.head(20))
             print("exit code:",str(ret))
             exit(ret)
         else:

@@ -1012,7 +1012,7 @@ def create(args, line):
                 )
             #print("dump_cmd:", dump_cmd)
             #print "dump_cmd ret:", ret
-            print("dump_csv duration:", (datetime.datetime.now() - start_time).total_seconds())
+            append_table_operation_stats(args, table_name, "dump_csv duration:", (datetime.datetime.now() - start_time).total_seconds())
 
         table_dump_fp_ori = table_dump_fp
         pqfp = table_dump_fp_ori.replace(".csv","_{}.parquet".format(args['log_hash']))
@@ -1047,7 +1047,7 @@ def create(args, line):
                         nf.write(ofl)
 
             table_dump_fp = table_dump_fp_adj
-            print("""find_and_conv_spatialite_blob_to_wkb, replace ,"" with , total file duration:""", (datetime.datetime.now() - start_time).total_seconds())
+            append_table_operation_stats(args, table_name, """find_and_conv_spatialite_blob_to_wkb, replace ,"" with , total file duration:""", (datetime.datetime.now() - start_time).total_seconds())
 
 
 
@@ -1109,7 +1109,7 @@ def create(args, line):
                 )
                 
             )
-            print("padf read_csv duration:", (datetime.datetime.now() - start_time).total_seconds())
+            append_table_operation_stats(args, table_name, "padf read_csv duration:", (datetime.datetime.now() - start_time).total_seconds())
             
             start_time = datetime.datetime.now()
             
@@ -1221,7 +1221,7 @@ def create(args, line):
                 padf = padf.remove_column(drop_index)            
                 
             #print "padf.schema:\n", padf.schema
-            print("padf processing and conversion with pd duration:", (datetime.datetime.now() - start_time).total_seconds())
+            append_table_operation_stats(args, table_name, "padf processing and conversion with pd duration:", (datetime.datetime.now() - start_time).total_seconds())
             
             print("padf len:", len(padf))
 
@@ -1231,7 +1231,7 @@ def create(args, line):
             pq.write_table(padf, pqfp, flavor='spark', compression=PARQUET_COMPRESSION, use_dictionary=True)
             
             assert os.path.isfile(pqfp)
-            print("pq.write_table duration:", (datetime.datetime.now() - start_time).total_seconds())
+            append_table_operation_stats(args, table_name, "pq.write_table duration:", (datetime.datetime.now() - start_time).total_seconds())
             print("wrote pqfp:", pqfp)
             
             # if log_table dont return - let it enter pg too...
@@ -1484,3 +1484,10 @@ def is_numeric_col_type(col_type):
     if cl in ("int", "integer", "bigint", "biginteger", "real", "double", "float"):
         return True
     return False
+
+
+def append_table_operation_stats(args, table, operation, duration):
+    od = args["table_operation_stats"]
+    od["table"].append(table)
+    od["operation"].append(operation)
+    od["duration"].append(duration)

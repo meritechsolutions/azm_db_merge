@@ -1169,11 +1169,9 @@ def create(args, line):
                 # use pandas to decode geom from hex to binary, then extract lat, lon from wkb
                 geom_sr = padf.column(geom_field_index).to_pandas()
                 geom_sr_null_mask = pd.isnull(geom_sr)
-                geom_sr = geom_sr.astype(str)
-                geom_sr.loc[geom_sr_null_mask] = None
+                geom_sr = geom_sr.str.decode('ascii')
                 geom_sr = geom_sr.fillna("")
-                print('ori geom_sr.head():', geom_sr.head())
-                print("ori geom_sr_null_mask:", geom_sr_null_mask)                
+                #print("ori geom_sr:", geom_sr)
                 
                 if not geom_format_in_csv_is_wkb:
                     print("geom in csv is in spatialite format - convert to wkb first...")
@@ -1184,15 +1182,13 @@ def create(args, line):
                     geom_sr = endian + class_type + point  # wkb
                     
                 
-                print("geom_sr:", geom_sr)
-                
                 geom_sr = geom_sr.str.decode("hex")
                 geom_sr[geom_sr_null_mask] = None
-                print('wkb geom_sr.head():', geom_sr.head())
+                #print('wkb geom_sr.head():', geom_sr.head())
                 lon_sr = geom_sr.apply(lambda x: None if (pd.isnull(x) or len(x) != WKB_POINT_LAT_LON_BYTES_LEN) else np.frombuffer(x[9:9+8], dtype=np.float64)).astype(np.float64)  # X                                
                 lat_sr = geom_sr.apply(lambda x: None if (pd.isnull(x) or len(x) != WKB_POINT_LAT_LON_BYTES_LEN) else np.frombuffer(x[9+8:9+8+8], dtype=np.float64)).astype(np.float64)  # Y
-                print('lon_sr', lon_sr.head())
-                print('lat_sr', lat_sr.head())
+                #print('lon_sr', lon_sr.head())
+                #print('lat_sr', lat_sr.head())
                 
                 ##### assign all three back to padf
                 ## replace geom with newly converted to binary geom_sr

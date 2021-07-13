@@ -328,7 +328,7 @@ def handle_sql3_dump_line(args, line):
         
         table_name = line.split(" (")[0].replace("CREATE TABLE ","").replace("\"","")
         dprint("check table_name is_omit_table: "+table_name)
-        is_omit_table = table_name in args['omit_tables_array']
+        is_omit_table = table_name in args['omit_tables_array'] or table_name == "azq_internal_types"
         dprint("is this table in --omit_tables ? "+table_name+" = "+str(is_omit_table))
 
         if args['only_tables_on']:

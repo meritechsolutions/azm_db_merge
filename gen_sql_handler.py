@@ -988,6 +988,7 @@ def create(args, line):
 
             # filter all tables but not the main logs table
             if table_name != "logs":
+                pass
                 select_sqlstr += " where time >= '{}' and time <= '{}'".format(args['log_data_min_time'], args['log_data_max_time'])
                 
             #print "select_sqlstr:", select_sqlstr
@@ -1487,6 +1488,7 @@ def is_numeric_col_type(col_type):
 
 
 def append_table_operation_stats(args, table, operation, duration):
+    print("operation_stats: {}:{}:{} seconds".format(table, operation, duration))
     od = args["table_operation_stats"]
     od["table"].append(table)
     od["operation"].append(operation)

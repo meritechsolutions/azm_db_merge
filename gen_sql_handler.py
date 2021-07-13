@@ -398,6 +398,15 @@ def commit(args, line):
                 g_cursor.copy_expert(buf, dump_fp_fo)
         else:
             try:
+                
+                if args['dump_parquet']:
+                    #print("dump_parquet mode exec buf:", buf)
+                    skip = True
+                    if 'delete from "logs" where' in buf:
+                        skip = False
+                    if skip:
+                        print("dump_parquet mode SKIP exec buf:", buf)
+                        continue
                 with g_conn:  # needed otherwise cursor would become invalid and unmerge would fail for no table cases handled below
                     g_cursor.execute(buf)
             except Exception as e:
@@ -1001,7 +1010,7 @@ def create(args, line):
                     dump_cmd,
                     shell=False
                 )
-            print("dump_cmd:", dump_cmd)
+            #print("dump_cmd:", dump_cmd)
             #print "dump_cmd ret:", ret
             print("dump_csv duration:", (datetime.datetime.now() - start_time).total_seconds())
 

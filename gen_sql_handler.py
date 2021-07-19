@@ -720,11 +720,10 @@ def create(args, line):
                                     pass
                                 else:
                                     print("cre schema now because: NOT schema_per_month_name already exists:", schema_per_month_name)
-                                    with g_conn:
-                                        c_table_per_month_sql = "create schema {};".format(schema_per_month_name)
-                                        ret = g_cursor.execute(c_table_per_month_sql)
-                                        g_conn.commit()
-                                        print("success: create per_month ["+c_table_per_month_sql+"] success")
+                                    c_table_per_month_sql = "create schema {};".format(schema_per_month_name)
+                                    ret = g_cursor.execute(c_table_per_month_sql)
+                                    g_conn.commit()
+                                    print("success: create per_month ["+c_table_per_month_sql+"] success")
                         except:
                             type_, value_, traceback_ = sys.exc_info()
                             exstr = str(traceback.format_exception(type_, value_, traceback_))
@@ -1435,7 +1434,7 @@ def exec_creatept_or_alter_handle_concurrency(sqlstr, raise_exception_if_fail=Tr
     ret = False
     prev_exstr = ""
 
-    exec_creatept_or_alter_handle_concurrency_max_retries = 200
+    exec_creatept_or_alter_handle_concurrency_max_retries = 2
     
     for retry in range(exec_creatept_or_alter_handle_concurrency_max_retries):
         try:

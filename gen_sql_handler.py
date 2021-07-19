@@ -77,7 +77,7 @@ KNOWN_COL_TYPES_LOWER_TO_PD_PARQUET_TYPE_DICT = {
     "time": datetime,
     "date": datetime,
     "datetime": datetime,
-    "text": unicode,
+    "text": str,
     "geometry": str,
     "double": np.float64,
     "real": np.float64,
@@ -98,7 +98,7 @@ def connect(args):
     global g_is_ms, g_is_postgre
 
     if (args['target_db_type'] == 'postgresql'):
-        print "PostgreSQL mode initializing..."
+        print("PostgreSQL mode initializing...")
         g_is_postgre = True
         import psycopg2
         
@@ -115,7 +115,7 @@ def connect(args):
     g_dir_processing_azm = args['dir_processing_azm']
 
     if g_is_ms:
-        print "Connecting... Target DBMS type: mssql"
+        print("Connecting... Target DBMS type: mssql")
         dprint("connect args: {} {} {} {}".format(args['server_url'],
                                                   args['server_user'],
                                                   args['server_password'],
@@ -144,7 +144,7 @@ def connect(args):
         g_conn = pyodbc.connect(connect_str, autocommit = False)
         
     elif g_is_postgre:
-        print "Connecting... Target DBMS type: PostgreSQL"
+        print("Connecting... Target DBMS type: PostgreSQL")
         # example: conn = psycopg2.connect("dbname=azqdb user=azqdb")
         connect_str = "dbname={} user={} password={} port={}".format(
                 args['server_database'],
@@ -152,17 +152,17 @@ def connect(args):
             args['server_password'],
             args['pg_port']
                 )
-        print connect_str
+        print(connect_str)
         if args['pg_host'] != None:
             connect_str = "host="+args['pg_host']+" "+connect_str
         #unsafe as users might see in logs print "using connect_str: "+connect_str
         args['connect_str'] = connect_str
         g_conn = psycopg2.connect(connect_str)
     if (g_conn is None):
-        print "psycopg2.connect returned None"
+        print("psycopg2.connect returned None")
         return False
     
-    print "connected"
+    print("connected")
     
     g_cursor = g_conn.cursor()
 
@@ -172,12 +172,12 @@ def connect(args):
        try_cre_postgis(schema="public") # create postgis at public schema first
         
        if args["pg_schema"] != "public":
-            print "pg mode create pg_schema:", args["pg_schema"]
+            print("pg mode create pg_schema:", args["pg_schema"])
             try:
                 with g_conn as c:
                     g_cursor.execute("create schema if not exists "+args["pg_schema"])
                     c.commit()
-                    print "success: create schema "+args["pg_schema"]+ " success"
+                    print("success: create schema "+args["pg_schema"]+ " success")
                     
             except Exception as e:
                 estr = str(e)
@@ -185,7 +185,7 @@ def connect(args):
                     dprint("schema already exists")
                     pass
                 else:
-                    print("FATAL: CREATE schema failed:"+args["pg_schema"])
+                    print(("FATAL: CREATE schema failed:"+args["pg_schema"]))
                     raise e
             # create postgis in public only - print "pg using schema start"
             # try_cre_postgis(schema=args["pg_schema"]) # inside new schema
@@ -235,10 +235,10 @@ def try_cre_postgis(schema="public"):
     try:
         with g_conn as c:
             sql = "CREATE EXTENSION if not exists postgis SCHEMA {}".format(schema)
-            print "try: CREATE EXTENSION postgis on schema:", schema, "sql:", sql
+            print("try: CREATE EXTENSION postgis on schema:", schema, "sql:", sql)
             g_cursor.execute(sql)
             c.commit()
-            print "success: CREATE EXTENSION postgis"
+            print("success: CREATE EXTENSION postgis")
     except Exception as e:
         estr = str(e)
         if 'already exists' in estr:
@@ -259,11 +259,11 @@ def check_if_already_merged(args, log_hash):
         g_cursor.execute("SET search_path = '{}','public';".format(args["pg_schema"]))
     
     try:
-        print "checking if this log_hash has already been imported/merged: "+log_hash
+        print("checking if this log_hash has already been imported/merged: "+log_hash)
         sqlstr = "select \"log_hash\" from \"logs\" where \"log_hash\" = ?"
         if g_is_postgre:
             sqlstr = sqlstr.replace("?","%s")
-        print("check log cmd: "+sqlstr)
+        print(("check log cmd: "+sqlstr))
 
         row = None
 
@@ -272,7 +272,7 @@ def check_if_already_merged(args, log_hash):
             g_cursor.execute(sqlstr, [log_hash])
             row = g_cursor.fetchone()
 
-        print("after cmd check if exists row:", row)
+        print(("after cmd check if exists row:", row))
 
         if (row is None):
             
@@ -282,7 +282,7 @@ def check_if_already_merged(args, log_hash):
                 # unmerge mode - this azm is not in target db
                 raise Exception("ABORT: This azm is already not present in target db's logs' table")               
             else:
-                print "This log hasn't been imported into target db yet - ok to proceed"
+                print("This log hasn't been imported into target db yet - ok to proceed")
                 pass
                 return True
             
@@ -304,20 +304,20 @@ def check_if_already_merged(args, log_hash):
                     drow = {}
                     i = 0
                     for col in cols:
-                        print row[i]
+                        print(row[i])
                         drow[col[0]] = row[i]
                         i = i+1
                     row = drow
                 
                 #dprint("um1")
                     
-                print "### unmerge mode - delete start for azm: log_hash {}".format(row['log_hash'])
+                print("### unmerge mode - delete start for azm: log_hash {}".format(row['log_hash']))
                 g_unmerge_logs_row = row
                 
                 sqlstr = "delete from \"logs\" where \"log_hash\" = '{}'".format(log_hash)
                 
                 g_exec_buf.append(sqlstr)
-                print "delete from logs table added to g_exec_buf: ", sqlstr
+                print("delete from logs table added to g_exec_buf: ", sqlstr)
                 
             else:
                 raise Exception("ABORT: This log ({}) has already been imported/exists in target db (use --unmerge to remove first if you want to re-import).".format(log_hash))
@@ -327,7 +327,7 @@ def check_if_already_merged(args, log_hash):
         estr = str(e)
         if ("Invalid object name 'logs'" in estr or '42S02' in estr
             or 'relation "logs" does not exist' in estr):
-            print "looks like this is the first-time log import - no table named logs exists yet - ok..."
+            print("looks like this is the first-time log import - no table named logs exists yet - ok...")
             if args['unmerge']:
                 raise Exception("--unmerge mode called on an empty database: no related 'logs' table exist yet")
             # first time import - no table named logs exists yet
@@ -335,7 +335,7 @@ def check_if_already_merged(args, log_hash):
         else:
             type_, value_, traceback_ = sys.exc_info()
             exstr = str(traceback.format_exception(type_, value_, traceback_))
-            print "re-raise exception e - ",exstr
+            print("re-raise exception e - ",exstr)
             raise e
         
     return False
@@ -349,7 +349,7 @@ def close(args):
     global g_bulk_insert_mode
     global g_unmerge_logs_row
     
-    print "mssql_handler close() - cleanup()"
+    print("mssql_handler close() - cleanup()")
     
     g_prev_create_statement_column_names = None
     g_prev_create_statement_table_name = None
@@ -363,14 +363,14 @@ def close(args):
             g_cursor.close()
             g_cursor = None        
         except Exception as e:
-            print "warning: mssql cursor close failed: "+str(e)
+            print("warning: mssql cursor close failed: "+str(e))
         
     if g_conn is not None:    
         try:
             g_conn.close()
             g_conn = None
         except Exception as e:
-            print "warning: mssql conn close failed: "+str(e)
+            print("warning: mssql conn close failed: "+str(e))
             
     return True
 
@@ -387,7 +387,7 @@ def commit(args, line):
     # make sure all create/alters are committed
     g_conn.commit()
     
-    print "### total cmds to execute for operation: "+str(n)
+    print("### total cmds to execute for operation: "+str(n))
     
     i = 0
     for buf in g_exec_buf:
@@ -398,15 +398,24 @@ def commit(args, line):
                 g_cursor.copy_expert(buf, dump_fp_fo)
         else:
             try:
+                
+                if args['dump_parquet']:
+                    #print("dump_parquet mode exec buf:", buf)
+                    skip = True
+                    if 'delete from "logs" where' in buf:
+                        skip = False
+                    if skip:
+                        print("dump_parquet mode SKIP exec buf:", buf)
+                        continue
                 with g_conn:  # needed otherwise cursor would become invalid and unmerge would fail for no table cases handled below
                     g_cursor.execute(buf)
             except Exception as e:
                 if "does not exist" in str(e) and args['unmerge']:
-                    print "WARNING: unmerge exception: {} - but ok for --umnerge mode if exec delete and face - does not exist exception...".format(e)
+                    print("WARNING: unmerge exception: {} - but ok for --umnerge mode if exec delete and face - does not exist exception...".format(e))
                 else:
                     raise e
 
-        print "# done execute cmd {}/{}: {}".format(i, n, buf)
+        print("# done execute cmd {}/{}: {}".format(i, n, buf))
         i = i + 1
         
     print("### all cmds exec success - COMMIT now...")    
@@ -431,19 +440,19 @@ def commit(args, line):
                 args['log_hash']
             )
             rmcmd += " --exec 'mc rm {}'"
-            print "mc rmcmd:", rmcmd
+            print("mc rmcmd:", rmcmd)
             rmcmdret = os.system(rmcmd)
             if rmcmdret != 0:
                 raise Exception("Remove files from object store failed cmcmdret: {}".format(rmcmdret))
             try:
                 with g_conn:
                     update_sql = "update uploaded_logs set non_azm_object_size_bytes = null where log_hash = {};".format(args['log_hash'])
-                    print "update_sql:", update_sql
+                    print("update_sql:", update_sql)
                     g_cursor.execute(update_sql)
             except:
                 type_, value_, traceback_ = sys.exc_info()
                 exstr = str(traceback.format_exception(type_, value_, traceback_))
-                print "WARNING: update uploaded_logs set non_azm_object_size_bytes to null failed exception:", exstr
+                print("WARNING: update uploaded_logs set non_azm_object_size_bytes to null failed exception:", exstr)
 
         else:
             cpcmd = "mc cp {}/*.parquet minio_logs/{}/{}/".format(
@@ -451,7 +460,7 @@ def commit(args, line):
                 bucket_name,
                 bucket_ym_folder_name,
             )
-            print "mc cpcmd:", cpcmd
+            print("mc cpcmd:", cpcmd)
             cpcmdret = os.system(cpcmd)
             if cpcmdret != 0:
                 raise Exception("Copy files to object store failed cmcmdret: {}".format(cpcmdret))
@@ -462,12 +471,12 @@ def commit(args, line):
                     combined_pq_size += fp_sz
                 with g_conn:
                     update_sql = "update uploaded_logs set non_azm_object_size_bytes = {} where log_hash = {};".format(combined_pq_size, args['log_hash'])
-                    print "update_sql:", update_sql
+                    print("update_sql:", update_sql)
                     g_cursor.execute(update_sql)
             except:
                 type_, value_, traceback_ = sys.exc_info()
                 exstr = str(traceback.format_exception(type_, value_, traceback_))
-                print "WARNING: update uploaded_logs set non_azm_object_size_bytes to parquets size failed exception:", exstr
+                print("WARNING: update uploaded_logs set non_azm_object_size_bytes to parquets size failed exception:", exstr)
 
     
     return True
@@ -618,22 +627,22 @@ def create(args, line):
 
     if table_name == "logs":
         uline = line.replace('"log_hash" BIGINT,','"log_hash" BIGINT UNIQUE,',1)
-        print "'logs' table cre - make log_hash unique for this table: ", uline
+        print("'logs' table cre - make log_hash unique for this table: ", uline)
         line_adj = sql_adj_line(uline)
     if table_name == "wifi_scanned":
         wifi_scanned_MIN_APP_V0 = 3
         wifi_scanned_MIN_APP_V1 = 0
         wifi_scanned_MIN_APP_V2 = 742
-        print "check azm apk ver for wifi_scanned table omit: ", args["azm_apk_version"]
+        print("check azm apk ver for wifi_scanned table omit: ", args["azm_apk_version"])
         if args["azm_apk_version"] < wifi_scanned_MIN_APP_V0*1000*1000 + wifi_scanned_MIN_APP_V1*1000 + wifi_scanned_MIN_APP_V2:
-            print "omit invalidly huge wifi_scanned table in older app vers requested by a customer - causes various db issues"
+            print("omit invalidly huge wifi_scanned table in older app vers requested by a customer - causes various db issues")
             return False
         
     if args['import_geom_column_in_location_table_only'] and table_name != "location":
         line_adj = sql_adj_line(line.replace(',"geom" BLOB','',1))
 
     if (g_unmerge_logs_row is not None):
-        print "### unmerge mode - delete all rows for this azm in table: "+table_name
+        print("### unmerge mode - delete all rows for this azm in table: "+table_name)
         
         """ now we use log_hash - no need to parse time
         # remove 3 traling 000 from microsecs str
@@ -707,19 +716,19 @@ def create(args, line):
                             with g_conn:
                                 g_cursor.execute("SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{}';".format(schema_per_month_name))
                                 if bool(g_cursor.rowcount):
-                                    print "schema_per_month_name already exists:", schema_per_month_name
+                                    print("schema_per_month_name already exists:", schema_per_month_name)
                                     pass
                                 else:
-                                    print "cre schema now because: NOT schema_per_month_name already exists:", schema_per_month_name
+                                    print("cre schema now because: NOT schema_per_month_name already exists:", schema_per_month_name)
                                     with g_conn:
                                         c_table_per_month_sql = "create schema {};".format(schema_per_month_name)
                                         ret = g_cursor.execute(c_table_per_month_sql)
                                         g_conn.commit()
-                                        print "success: create per_month ["+c_table_per_month_sql+"] success"
+                                        print("success: create per_month ["+c_table_per_month_sql+"] success")
                         except:
                             type_, value_, traceback_ = sys.exc_info()
                             exstr = str(traceback.format_exception(type_, value_, traceback_))
-                            print "WARNING: create table_per_month schema failed - next insert/COPY commands would likely faile now - exstr:", exstr
+                            print("WARNING: create table_per_month schema failed - next insert/COPY commands would likely faile now - exstr:", exstr)
 
 
                 #dprint("create sqlstr postgres mod: "+sqlstr)                
@@ -750,7 +759,7 @@ def create(args, line):
             # use with for auto rollback() on g_conn on expected fails like already exists
             with g_conn:
                 sqlstr = sqlstr.replace('" bigintEGER,', '" bigint,')
-                print "exec:", sqlstr
+                print("exec:", sqlstr)
                 ret = g_cursor.execute(sqlstr)
             # commit now otherwise COPY might not see partitions
             g_conn.commit()
@@ -768,7 +777,7 @@ def create(args, line):
             if ("There is already an object named" in emsg or
                 " already exists" in emsg):
                 if args['need_check_remote_cols']:
-                    print("args['need_check_remote_cols']", args['need_check_remote_cols'], "so must do alter check")
+                    print(("args['need_check_remote_cols']", args['need_check_remote_cols'], "so must do alter check"))
                     print("""This table already exists -
                     checking if all local columns already exist in remote
                     - otherwise will add each missing cols to
@@ -814,7 +823,7 @@ def create(args, line):
                         pass
                         #dprint("n_cols_to_add == 0 - no need to alter table")
                     else:
-                        print "n_cols_to_add: " + str(n_cols_to_add) + " - need to alter table - add cols:" + str(local_columns_not_in_remote) + "\nremote_cols:\n"+str(remote_columns)
+                        print("n_cols_to_add: " + str(n_cols_to_add) + " - need to alter table - add cols:" + str(local_columns_not_in_remote) + "\nremote_cols:\n"+str(remote_columns))
                         # example: ALTER TABLE dbo.doc_exa ADD column_b VARCHAR(20) NULL, column_c INT NULL ; 
                         alter_str = "ALTER TABLE \"{}\" ".format(table_name)
                         alter_cols = ""                
@@ -829,15 +838,15 @@ def create(args, line):
                         alter_str = alter_str + alter_cols + ";"
 
                         sqlstr = sql_adj_line(alter_str)
-                        print "execute alter_str: " + sqlstr
+                        print("execute alter_str: " + sqlstr)
                         exec_creatept_or_alter_handle_concurrency(sqlstr)
 
                         # re-get remote cols
                         remote_columns = get_remote_columns(args, table_name)
                         remote_column_names = get_col_names(remote_columns)
-                        print("get_remote_columns after alter: "+str(remote_column_names))
+                        print(("get_remote_columns after alter: "+str(remote_column_names)))
                 else:
-                    print("args['need_check_remote_cols']", args['need_check_remote_cols'], "so no need to do alter check")
+                    print(("args['need_check_remote_cols']", args['need_check_remote_cols'], "so no need to do alter check"))
 
             else:
                 raise Exception("FATAL: create table error - : \nemsg:\n "+emsg+" \nsqlstr:\n"+sqlstr)
@@ -870,16 +879,16 @@ def create(args, line):
                         WHERE  n.nspname = '{}'
                         AND    c.relname = '{}'
                         AND    c.relkind = 'r'""".format(schema_per_month_name, ntn)   
-                        print "check_sql partition of table exists or not:", check_sql
+                        print("check_sql partition of table exists or not:", check_sql)
                         g_cursor.execute(check_sql)
                         if bool(g_cursor.rowcount):
                             per_month_table_already_exists = True
 
                     if per_month_table_already_exists:
-                        print "omit create already existing per_month table:", pltn
+                        print("omit create already existing per_month table:", pltn)
                         pass
                     else:
-                        print "NOT omit create already existing per_month table:", pltn
+                        print("NOT omit create already existing per_month table:", pltn)
                         cre_target_pt_sql = "CREATE TABLE {} PARTITION OF {} FOR VALUES from ('{}-1') to ('{}-1');".format(
                             pltn,
                             table_name,
@@ -890,7 +899,7 @@ def create(args, line):
                             cre_index_for_pt_sql = "CREATE INDEX ON {} (log_hash);".format(pltn)
                             cre_target_pt_sql += " "+cre_index_for_pt_sql
                             
-                        print("cre_target_pt_sql:", cre_target_pt_sql)                        
+                        print(("cre_target_pt_sql:", cre_target_pt_sql))                        
                         exec_creatept_or_alter_handle_concurrency(cre_target_pt_sql, allow_exstr_list=[" already exists"])
 
         ###### let sqlite3 dump contents of table into file
@@ -947,11 +956,11 @@ def create(args, line):
             elif table_name == "nr_cell_meas":
                 # special table handling
                 if "int" in col_type.lower():
-                    print "nr_cell_meas cast to int:  col_name {} col_type {}".format(col_name, col_type)
+                    print("nr_cell_meas cast to int:  col_name {} col_type {}".format(col_name, col_type))
                     pre = "cast("
                     post = " as int)"
                 elif "double" in col_type.lower():
-                    print "nr_cell_meas cast to double:  col_name {} col_type {}".format(col_name, col_type)
+                    print("nr_cell_meas cast to double:  col_name {} col_type {}".format(col_name, col_type))
                     pre = "cast("
                     post = " as double)"
             
@@ -979,6 +988,7 @@ def create(args, line):
 
             # filter all tables but not the main logs table
             if table_name != "logs":
+                pass
                 select_sqlstr += " where time >= '{}' and time <= '{}'".format(args['log_data_min_time'], args['log_data_max_time'])
                 
             #print "select_sqlstr:", select_sqlstr
@@ -1001,9 +1011,9 @@ def create(args, line):
                     dump_cmd,
                     shell=False
                 )
-            #print "dump_cmd:", dump_cmd
+            #print("dump_cmd:", dump_cmd)
             #print "dump_cmd ret:", ret
-            print "dump_csv duration:", (datetime.datetime.now() - start_time).total_seconds()
+            append_table_operation_stats(args, table_name, "dump_csv duration:", (datetime.datetime.now() - start_time).total_seconds())
 
         table_dump_fp_ori = table_dump_fp
         pqfp = table_dump_fp_ori.replace(".csv","_{}.parquet".format(args['log_hash']))
@@ -1016,9 +1026,9 @@ def create(args, line):
             geom_format_in_csv_is_wkb = True            
             start_time = datetime.datetime.now()
             with open(table_dump_fp,"rb") as of:
-                with open(table_dump_fp_adj,"wb") as nf:  # wb required for windows so that \n is 0x0A - otherwise \n will be 0x0D 0x0A and doest go with our fmt file and only 1 row will be inserted per table csv in bulk inserts...
+                with open(table_dump_fp_adj,"w") as nf:  # wb required for windows so that \n is 0x0A - otherwise \n will be 0x0D 0x0A and doest go with our fmt file and only 1 row will be inserted per table csv in bulk inserts...
                     while True:
-                        ofl = of.readline()
+                        ofl = of.readline().decode()
 
                         ''' this causes python test_browse_performance_timing.py to fail as its json got changed
                         if g_is_postgre:
@@ -1038,18 +1048,18 @@ def create(args, line):
                         nf.write(ofl)
 
             table_dump_fp = table_dump_fp_adj
-            print """find_and_conv_spatialite_blob_to_wkb, replace ,"" with , total file duration:""", (datetime.datetime.now() - start_time).total_seconds()
+            append_table_operation_stats(args, table_name, """find_and_conv_spatialite_blob_to_wkb, replace ,"" with , total file duration:""", (datetime.datetime.now() - start_time).total_seconds())
 
 
 
         #dprint("dump table: "+table_name+" for bulk insert ret: "+str(ret))
         
         if (ret != 0):
-            print "WARNING: dump table: "+table_name+" for bulk insert failed - likely sqlite db file error like: database disk image is malformed. In many cases, data is still correct/complete so continue."
+            print("WARNING: dump table: "+table_name+" for bulk insert failed - likely sqlite db file error like: database disk image is malformed. In many cases, data is still correct/complete so continue.")
             
             
         if (os.stat(table_dump_fp).st_size == 0):
-            print "this table is empty..."
+            print("this table is empty...")
             return True
         
         # if control reaches here then the table is not empty
@@ -1059,9 +1069,9 @@ def create(args, line):
         if args['dump_parquet']:
             #print "local_column_names:", local_column_names            
             pa_column_types = local_column_dict.copy()
-            for col in pa_column_types.keys():
+            for col in list(pa_column_types.keys()):
                 sqlite_col_type = pa_column_types[col].lower()
-                if sqlite_col_type in pa_type_replace_dict.keys():
+                if sqlite_col_type in list(pa_type_replace_dict.keys()):
                     pa_column_types[col] = pa_type_replace_dict[sqlite_col_type]
                 elif sqlite_col_type.startswith("varchar"):
                     pa_column_types[col] = "string"
@@ -1081,7 +1091,7 @@ def create(args, line):
 
 
             start_time = datetime.datetime.now()
-            print "read csv into pa:", table_dump_fp
+            print("read csv into pa:", table_dump_fp)
             #print "pa_column_types:", pa_column_types
             #print "local_column_names:", local_column_names
             padf = csv.read_csv(
@@ -1100,7 +1110,7 @@ def create(args, line):
                 )
                 
             )
-            print "padf read_csv duration:", (datetime.datetime.now() - start_time).total_seconds()
+            append_table_operation_stats(args, table_name, "padf read_csv duration:", (datetime.datetime.now() - start_time).total_seconds())
             
             start_time = datetime.datetime.now()
             
@@ -1156,7 +1166,7 @@ def create(args, line):
             for i in range(len(fields_need_pd_datetime)):                
                 index = field_indexes_need_pd_datetime[i]
                 field = fields_need_pd_datetime[i]
-                print "converting field index {} name {} to datetime...".format(index, field)
+                print("converting field index {} name {} to datetime...".format(index, field))
                 # convert
                 converted_sr = pd.to_datetime(padf.column(index).to_pandas())
                 #print "converted_sr head:", converted_sr.head()
@@ -1169,34 +1179,36 @@ def create(args, line):
                 # use pandas to decode geom from hex to binary, then extract lat, lon from wkb
                 geom_sr = padf.column(geom_field_index).to_pandas()
                 geom_sr_null_mask = pd.isnull(geom_sr)
+                geom_sr = geom_sr.str.decode('ascii')
                 geom_sr = geom_sr.fillna("")
-                
-                #print 'ori geom_sr.head():', geom_sr.head()
+                #print("ori geom_sr:", geom_sr)
                 
                 if not geom_format_in_csv_is_wkb:
-                    print "geom in csv is in spatialite format - convert to wkb first..."
+                    print("geom in csv is in spatialite format - convert to wkb first...")
                     spatialite_geom_sr = geom_sr
                     class_type = "01000020E6100000"
                     endian = "01"  # spatialite_geom_sr.str.slice(start=2, stop=4)
-                    point =  spatialite_geom_sr.str.slice(start=86, stop=118)   # 86 + 16 + 16
+                    point =  spatialite_geom_sr.str.slice(start=86, stop=118)   # 86 + 16 + 16                    
                     geom_sr = endian + class_type + point  # wkb
-                
+                    
                 
                 geom_sr = geom_sr.str.decode("hex")
                 geom_sr[geom_sr_null_mask] = None
-                print 'wkb geom_sr.head():', geom_sr.head()
+                #print('wkb geom_sr.head():', geom_sr.head())
                 lon_sr = geom_sr.apply(lambda x: None if (pd.isnull(x) or len(x) != WKB_POINT_LAT_LON_BYTES_LEN) else np.frombuffer(x[9:9+8], dtype=np.float64)).astype(np.float64)  # X                                
                 lat_sr = geom_sr.apply(lambda x: None if (pd.isnull(x) or len(x) != WKB_POINT_LAT_LON_BYTES_LEN) else np.frombuffer(x[9+8:9+8+8], dtype=np.float64)).astype(np.float64)  # Y
-                print 'lon_sr', lon_sr.head()
-                print 'lat_sr', lat_sr.head()
+                #print('lon_sr', lon_sr.head())
+                #print('lat_sr', lat_sr.head())
                 
                 ##### assign all three back to padf
                 ## replace geom with newly converted to binary geom_sr
                 geom_sr_len = len(geom_sr)
                 pa_array = None
                 if pd.isnull(geom_sr).all():
-                    pa_array = pa.array(geom_sr.values.tolist()+[""]).slice(0, geom_sr_len)  # convert tolist() and add [""] then slice() back to ori len required to avoid pyarrow.lib.ArrowInvalid: Field type did not match data type - see azq_report_gen/test_spark_wkb_exception.py
+                    print("geom_sr null all case")
+                    pa_array = pa.array(geom_sr.values.tolist()+[b'']).slice(0, geom_sr_len)  # convert tolist() and add [""] then slice() back to ori len required to avoid pyarrow.lib.ArrowInvalid: Field type did not match data type - see azq_report_gen/test_spark_wkb_exception.py
                 else:
+                    print("not geom_sr null all case")
                     pa_array = pa.array(geom_sr)
                 assert pa_array is not None
                 padf = padf.set_column(geom_field_index, pa.field("geom", "binary"), pa_array)
@@ -1210,9 +1222,9 @@ def create(args, line):
                 padf = padf.remove_column(drop_index)            
                 
             #print "padf.schema:\n", padf.schema
-            print "padf processing and conversion with pd duration:", (datetime.datetime.now() - start_time).total_seconds()
+            append_table_operation_stats(args, table_name, "padf processing and conversion with pd duration:", (datetime.datetime.now() - start_time).total_seconds())
             
-            print "padf len:", len(padf)
+            print("padf len:", len(padf))
 
             start_time = datetime.datetime.now()
 
@@ -1220,8 +1232,8 @@ def create(args, line):
             pq.write_table(padf, pqfp, flavor='spark', compression=PARQUET_COMPRESSION, use_dictionary=True)
             
             assert os.path.isfile(pqfp)
-            print "pq.write_table duration:", (datetime.datetime.now() - start_time).total_seconds()
-            print "wrote pqfp:", pqfp
+            append_table_operation_stats(args, table_name, "pq.write_table duration:", (datetime.datetime.now() - start_time).total_seconds())
+            print("wrote pqfp:", pqfp)
             
             # if log_table dont return - let it enter pg too...
             if table_name == "logs":
@@ -1418,7 +1430,7 @@ def exec_creatept_or_alter_handle_concurrency(sqlstr, raise_exception_if_fail=Tr
     global g_conn
     global g_cursor
 
-    print("exec_creatept_or_alter_handle_concurrency START sqlstr: {}".format(sqlstr))
+    print(("exec_creatept_or_alter_handle_concurrency START sqlstr: {}".format(sqlstr)))
     
     ret = False
     prev_exstr = ""
@@ -1430,9 +1442,9 @@ def exec_creatept_or_alter_handle_concurrency(sqlstr, raise_exception_if_fail=Tr
             
             # use with for auto rollback() on g_conn on expected fails like already exists
             with g_conn as con:
-                print("exec_creatept_or_alter_handle_concurrency retry {} sqlstr: {}".format(retry, sqlstr))
+                print(("exec_creatept_or_alter_handle_concurrency retry {} sqlstr: {}".format(retry, sqlstr)))
                 execret = g_cursor.execute(sqlstr)
-                print("exec_creatept_or_alter_handle_concurrency retry {} sqlstr: {} execret: {}".format(retry, sqlstr, execret))
+                print(("exec_creatept_or_alter_handle_concurrency retry {} sqlstr: {} execret: {}".format(retry, sqlstr, execret)))
 
                 # commit now otherwise upcoming COPY commands might not see partitions
                 con.commit()
@@ -1445,18 +1457,18 @@ def exec_creatept_or_alter_handle_concurrency(sqlstr, raise_exception_if_fail=Tr
 
             for allow_case in allow_exstr_list:
                 if allow_case in exstr:
-                    print "exec_creatept_or_alter_handle_concurrency got exception but matches allow_exstr_list allow_case: {} - so treat as success".format(allow_case)
+                    print("exec_creatept_or_alter_handle_concurrency got exception but matches allow_exstr_list allow_case: {} - so treat as success".format(allow_case))
                     ret = True
                     break
             if ret == True:
                 break
             
             prev_exstr = "WARNING: exec_creatept_or_alter_handle_concurrency retry {} exception: {}".format(retry, exstr)
-            print prev_exstr
+            print(prev_exstr)
             sleep_dur = random.random() + 0.5
             time.sleep(sleep_dur)
             
-    print("exec_creatept_or_alter_handle_concurrency DONE sqlstr: {} - ret {}".format(sqlstr, ret))
+    print(("exec_creatept_or_alter_handle_concurrency DONE sqlstr: {} - ret {}".format(sqlstr, ret)))
 
     if ret is False and raise_exception_if_fail:
         raise Exception("exec_creatept_or_alter_handle_concurrency FAILED after max retries: {} prev_exstr: {}".format(exec_creatept_or_alter_handle_concurrency_max_retries, prev_exstr))
@@ -1473,3 +1485,11 @@ def is_numeric_col_type(col_type):
     if cl in ("int", "integer", "bigint", "biginteger", "real", "double", "float"):
         return True
     return False
+
+
+def append_table_operation_stats(args, table, operation, duration):
+    print("operation_stats: {}:{}:{} seconds".format(table, operation, duration))
+    od = args["table_operation_stats"]
+    od["table"].append(table)
+    od["operation"].append(operation)
+    od["duration"].append(duration)

@@ -12,5 +12,5 @@ def set_debug(d):
 def dprint(*s): # https://stackoverflow.com/questions/919680/can-a-variable-number-of-arguments-be-passed-to-a-function
     global debug
     if debug != 0:
-        print("dprint: "+str(s))
+        print(("dprint: "+str(s)))
 

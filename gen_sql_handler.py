@@ -31,12 +31,12 @@ g_is_ms = False
 g_prev_create_statement_column_names = None
 g_prev_create_statement_table_name = None
 g_bulk_insert_mode = True
+
 g_unmerge_logs_row = None # would be set in --unmerge mode
 
 g_cursor = None
 g_conn = None
 g_exec_buf = []
-g_exec_tables = []
 
 """
 now we already use 'autocommit = True' as recommended by MSDN doc
@@ -379,7 +379,6 @@ def commit(args, line):
     global g_cursor, g_conn 
     global g_prev_create_statement_table_name
     global g_exec_buf
-    global g_exec_tables
     
     g_prev_create_statement_table_name = None
 
@@ -434,36 +433,17 @@ def commit(args, line):
 
         bucket_ym_folder_name = args['log_hash_ym_str'].replace("_", "-")
         if args['unmerge']:
-
-            find_mode = False
-
-            if find_mode:
-                # mc find s3/bucket --name "*.jpg" --watch --exec "mc cp {} play/bucket"
-                rmcmd = "mc find minio_logs/{}/{}/ --name '*_{}.parquet'".format(
-                    bucket_name,
-                    bucket_ym_folder_name,
-                    args['log_hash']
-                )
-                rmcmd += " --exec 'mc rm {}'"
-                print("mc rmcmd:", rmcmd)
-                rmcmdret = os.system(rmcmd)
-                if rmcmdret != 0:
-                    raise Exception("Remove files from object store failed cmcmdret: {}".format(rmcmdret))
-            else:
-                rets = []
-                for table in g_exec_tables:
-                    rmcmd = "mc rm 'minio_logs/{}/{}/{}_{}.parquet'".format(
-                        bucket_name,
-                        bucket_ym_folder_name,
-                        table,
-                        args['log_hash']
-                    )
-                    print("mc rmcmd:", rmcmd)
-                    ret = os.system(rmcmd)
-                    rets.append(ret)
-                if (pd.Series(rets).astype(int) != 0).all():
-                    raise Exception("Remove files from object store failed: (pd.Series(rets).astype(int) != 0).all()")
-                    
+            # mc find s3/bucket --name "*.jpg" --watch --exec "mc cp {} play/bucket"
+            rmcmd = "mc find minio_logs/{}/{}/ --name '*_{}.parquet'".format(
+                bucket_name,
+                bucket_ym_folder_name,
+                args['log_hash']
+            )
+            rmcmd += " --exec 'mc rm {}'"
+            print("mc rmcmd:", rmcmd)
+            rmcmdret = os.system(rmcmd)
+            if rmcmdret != 0:
+                raise Exception("Remove files from object store failed cmcmdret: {}".format(rmcmdret))
             try:
                 with g_conn:
                     update_sql = "update uploaded_logs set non_azm_object_size_bytes = null where log_hash = {};".format(args['log_hash'])
@@ -632,7 +612,6 @@ def create(args, line):
     global g_exec_buf
     global g_is_ms, g_is_postgre
     global g_unmerge_logs_row
-    global g_exec_tables
         
     g_prev_create_statement_column_names = None
 
@@ -645,8 +624,6 @@ def create(args, line):
 
     if table_name.startswith("spatialite_history"):
         return False  # omit these tables - import fails
-
-    g_exec_tables.append(table_name)
 
     if table_name == "logs":
         uline = line.replace('"log_hash" BIGINT,','"log_hash" BIGINT UNIQUE,',1)

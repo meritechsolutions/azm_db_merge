@@ -629,7 +629,7 @@ def process_azm_file(args):
         try:
             import redis
             redis_cache = redis.Redis(host='redis', port=6379)            
-            pg_newest_azm_app_ver = redis_cache.get("pg_newest_azm_app_ver")
+            pg_newest_azm_app_ver = redis_cache.get("pg_newest_azm_app_ver").decode()
             print("pg_newest_azm_app_ver:", pg_newest_azm_app_ver)
             if pg_newest_azm_app_ver:
                 if app_ver > pg_newest_azm_app_ver:

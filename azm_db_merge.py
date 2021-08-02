@@ -1037,7 +1037,7 @@ if __name__ == '__main__':
                 raise Exception("Failed to find sqlite3 - please install sqlite3 and make sure it is in the path first. exception:"+str(e))
 
 
-    omit_tables = "spatial_ref_sys,geometry_columns,"+args['exclude_tables']
+    omit_tables = "spatial_ref_sys,geometry_columns,log_decode_message,azq_internal_types,"+args['exclude_tables']
     omit_tables_array = omit_tables.split(",")
     args['omit_tables_array'] = omit_tables_array
 

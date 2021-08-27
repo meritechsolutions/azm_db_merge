@@ -1334,6 +1334,7 @@ def sql_adj_line(line):
     
     sqlstr = line
     #sqlstr = sqlstr.replace('`', '"')
+    sqlstr = sqlstr.replace("\" Double", "\" float")
     sqlstr = sqlstr.replace("\" double", "\" float")
     sqlstr = sqlstr.replace("\" DOUBLE", "\" float")
     sqlstr = sqlstr.replace("\" FLOAT", "\" float")

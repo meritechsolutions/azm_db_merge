@@ -26,6 +26,8 @@ import uuid
 import traceback
 import fnmatch
 import hashlib
+import glob
+import psutil
 from datetime import timedelta
 from datetime import datetime
 from datetime import tzinfo
@@ -417,10 +419,15 @@ def unzip_azm_to_tmp_folder(args):
     if 'TMP_GEN_PATH' in os.environ:
         dir_azm_unpack = os.environ['TMP_GEN_PATH']
         print("dir_azm_unpack using TMP_GEN_PATH:", dir_azm_unpack)
+    TMPFS_DIR = "/tmpfs"
+    if os.path.isdir(TMPFS_DIR):
+        print("using /tmpfs")
+        dir_azm_unpack = TMPFS_DIR  # to speedup preprocess sqlite work step as it was blocking at disk io for heavy tests in test0 server - this will get auto cleanedup if proc crashed by cleanup_old_tmpfs_tmp_dirs_with_invalid_pid_files()
     dir_processing_azm = os.path.join(dir_azm_unpack, "tmp_azm_db_merge_"+str(uuid.uuid4())+"_"+azm_name_no_ext.replace(" ","-")) # replace 'space' in azm file name
     args['dir_processing_azm'] = dir_processing_azm
-    
-    dprint("unzip_azm_to_tmp_folder 1")
+    dprint("unzip_azm_to_tmp_folder 1 dir_processing_azm:", dir_processing_azm)
+    gen_pidfile_in_tmp_dir(dir_processing_azm)
+    cleanup_old_tmpfs_tmp_dirs_with_invalid_pid_files()
     
     # try clear tmp processing folder just in case it exists from manual unzip or previous failed imports
     try:
@@ -965,6 +972,46 @@ def get_sql_result(sqlstr, args):
     outstr = subprocess.check_output(cmd).decode()
     result = outstr.strip()
     return result
+
+
+pidfilename_prefix = "pls_clean_folder_if_no_pid_"
+pidfilename_suffix = ".txt"
+pidfile_glob_pattern = "/tmpfs/*/{}*{}".format(pidfilename_prefix, pidfilename_suffix)
+
+def gen_pidfile_in_tmp_dir(d):
+    try:
+        pid = os.getpid()
+        pid_file_fp = os.path.join(d, "{}{}{}".format(pidfilename_prefix, pid, pidfilename_suffix))
+        print("gen_pidfile_in_tmp_dir:", pid_file_fp)
+        with open(pid_file_fp, "w") as f:
+            f.write(d)
+    except:
+        type_, value_, traceback_ = sys.exc_info()
+        exstr = str(traceback.format_exception(type_, value_, traceback_))
+        print("WARNING: gen_pidfile_in_tmp_dir exception: {}".format(exstr))
+
+def cleanup_old_tmpfs_tmp_dirs_with_invalid_pid_files():
+    pid = os.getpid()
+    # cleanup older died pid files
+    pidfiles = glob.glob(pidfile_glob_pattern)
+    this_container_pids = psutil.pids()
+    for pidfile_fp in pidfiles:
+        try:
+            pidfile_pid_str = os.path.basename(pidfile_fp).split(pidfilename_prefix)[1].split(pidfilename_suffix)[0]
+            pidfile_pid = int(pidfile_pid_str)
+            if pidfile_pid != pid:
+                if pidfile_pid not in this_container_pids:
+                    print("pidfile_pid not in this_container_pids: {} {}".format(pidfile_pid, this_container_pids))
+                    with open(pidfile_fp, "r") as f:
+                        tmp_dir = f.read().strip()
+                        if os.path.isdir(tmp_dir):
+                            print("cleaning up dead pidfile tmp_dir:", tmp_dir)
+                            shutil.rmtree(tmp_dir)
+        except:
+            type_, value_, traceback_ = sys.exc_info()
+            exstr = str(traceback.format_exception(type_, value_, traceback_))
+            print("WARNING: check pidfile_fp {} exception: {}".format(pidfile_fp, exstr))
+
 
 
 if __name__ == '__main__':

@@ -538,7 +538,7 @@ def find_and_conv_spatialite_blob_to_wkb(csv_line):
 
     WKBPoint {
     byte byteOrder;
-    uint32 wkbType; // 1
+    uint32 wkbType; //class_type
     Point point;
     }
 
@@ -580,7 +580,7 @@ def find_and_conv_spatialite_blob_to_wkb(csv_line):
         point = spatialite_geom_contents[86:118] # 86 + 16 + 16
         wkb = ""
         if g_is_postgre:
-            wkb = endian + class_type + point
+            wkb = endian + class_type + point # example:  01 01000020e6100000 ae17f9ab76565340 59528b140ca03c40
         if g_is_ms:
             
             """

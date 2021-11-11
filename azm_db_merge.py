@@ -420,9 +420,18 @@ def unzip_azm_to_tmp_folder(args):
         dir_azm_unpack = os.environ['TMP_GEN_PATH']
         print("dir_azm_unpack using TMP_GEN_PATH:", dir_azm_unpack)
     TMPFS_DIR = "/tmpfs"
-    if os.path.isdir(TMPFS_DIR):
-        print("using /tmpfs")
-        dir_azm_unpack = TMPFS_DIR  # to speedup preprocess sqlite work step as it was blocking at disk io for heavy tests in test0 server - this will get auto cleanedup if proc crashed by cleanup_old_tmpfs_tmp_dirs_with_invalid_pid_files()
+    GB_BYTES = 1024 * 1024 * 1024
+    MIN_TMPFS_REMAIN_SPACE_BYTES = 8 * GB_BYTES
+    if os.path.isdir(TMPFS_DIR) and os.system("touch /tmpfs/test_touch") == 0:
+        statvfs = os.statvfs(TMPFS_DIR)
+        remain_space = statvfs.f_frsize * statvfs.f_bfree
+        if remain_space > MIN_TMPFS_REMAIN_SPACE_BYTES:
+            print("using /tmpfs because remain_space {} MIN_TMPFS_REMAIN_SPACE_BYTES {}".format(remain_space,
+                                                                                                MIN_TMPFS_REMAIN_SPACE_BYTES))
+            dir_azm_unpack = TMPFS_DIR  # to speedup preprocess sqlite work step as it was blocking at disk io for heavy tests in test0 server - this will get auto cleanedup if proc crashed by cleanup_old_tmpfs_tmp_dirs_with_invalid_pid_files() func in preprocess_azm.py
+        else:
+            print("NOT using /tmpfs because remain_space {} MIN_TMPFS_REMAIN_SPACE_BYTES {}".format(remain_space,
+                                                                                                    MIN_TMPFS_REMAIN_SPACE_BYTES))
     dir_processing_azm = os.path.join(dir_azm_unpack, "tmp_azm_db_merge_"+str(uuid.uuid4())+"_"+azm_name_no_ext.replace(" ","-")) # replace 'space' in azm file name
     args['dir_processing_azm'] = dir_processing_azm
     dprint("unzip_azm_to_tmp_folder 1 dir_processing_azm:", dir_processing_azm)

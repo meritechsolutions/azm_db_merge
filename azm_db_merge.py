@@ -423,6 +423,7 @@ def unzip_azm_to_tmp_folder(args):
     GB_BYTES = 1024 * 1024 * 1024
     MIN_TMPFS_REMAIN_SPACE_BYTES = 8 * GB_BYTES
     if os.path.isdir(TMPFS_DIR) and os.system("touch /tmpfs/test_touch") == 0:
+        cleanup_old_tmpfs_tmp_dirs_with_invalid_pid_files()
         statvfs = os.statvfs(TMPFS_DIR)
         remain_space = statvfs.f_frsize * statvfs.f_bfree
         if remain_space > MIN_TMPFS_REMAIN_SPACE_BYTES:
@@ -436,7 +437,6 @@ def unzip_azm_to_tmp_folder(args):
     args['dir_processing_azm'] = dir_processing_azm
     dprint("unzip_azm_to_tmp_folder 1 dir_processing_azm:", dir_processing_azm)
     gen_pidfile_in_tmp_dir(dir_processing_azm)
-    cleanup_old_tmpfs_tmp_dirs_with_invalid_pid_files()
     
     # try clear tmp processing folder just in case it exists from manual unzip or previous failed imports
     try:

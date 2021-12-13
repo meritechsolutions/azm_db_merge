@@ -1085,14 +1085,16 @@ def create(args, line):
                     pa_column_types[col] = pa.string()  # some old db invalid type cases
                 elif pa_column_types[col] == "test":
                     pa_column_types[col] = pa.string()
+                elif col == "exynos_basic_info_nr_cellid":
+                    pa_column_types[col] = pa.uint64()
             
             # adj types for pa
 
 
             start_time = datetime.datetime.now()
             print("read csv into pa:", table_dump_fp)
-            #print "pa_column_types:", pa_column_types
-            #print "local_column_names:", local_column_names
+            #print("pa_column_types:", pa_column_types)
+            #print("local_column_names:", local_column_names)
             padf = csv.read_csv(
                 table_dump_fp,
                 read_options=csv.ReadOptions(

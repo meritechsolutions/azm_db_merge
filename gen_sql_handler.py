@@ -433,26 +433,27 @@ def commit(args, line):
 
         bucket_ym_folder_name = args['log_hash_ym_str'].replace("_", "-")
         if args['unmerge']:
-            # mc find s3/bucket --name "*.jpg" --watch --exec "mc cp {} play/bucket"
-            rmcmd = "mc find minio_logs/{}/{}/ --name '*_{}.parquet'".format(
-                bucket_name,
-                bucket_ym_folder_name,
-                args['log_hash']
-            )
-            rmcmd += " --exec 'mc rm {}'"
-            print("mc rmcmd:", rmcmd)
-            rmcmdret = os.system(rmcmd)
-            if rmcmdret != 0:
-                raise Exception("Remove files from object store failed cmcmdret: {}".format(rmcmdret))
-            try:
-                with g_conn:
-                    update_sql = "update uploaded_logs set non_azm_object_size_bytes = null where log_hash = {};".format(args['log_hash'])
-                    print("update_sql:", update_sql)
-                    g_cursor.execute(update_sql)
-            except:
-                type_, value_, traceback_ = sys.exc_info()
-                exstr = str(traceback.format_exception(type_, value_, traceback_))
-                print("WARNING: update uploaded_logs set non_azm_object_size_bytes to null failed exception:", exstr)
+            if False:
+                # object listing would cost too much cpu and class a operations so skip this for parquet mode
+                rmcmd = "mc find minio_logs/{}/{}/ --name '*_{}.parquet'".format(
+                    bucket_name,
+                    bucket_ym_folder_name,
+                    args['log_hash']
+                )
+                rmcmd += " --exec 'mc rm {}'"
+                print("mc rmcmd:", rmcmd)
+                rmcmdret = os.system(rmcmd)
+                if rmcmdret != 0:
+                    raise Exception("Remove files from object store failed cmcmdret: {}".format(rmcmdret))
+                try:
+                    with g_conn:
+                        update_sql = "update uploaded_logs set non_azm_object_size_bytes = null where log_hash = {};".format(args['log_hash'])
+                        print("update_sql:", update_sql)
+                        g_cursor.execute(update_sql)
+                except:
+                    type_, value_, traceback_ = sys.exc_info()
+                    exstr = str(traceback.format_exception(type_, value_, traceback_))
+                    print("WARNING: update uploaded_logs set non_azm_object_size_bytes to null failed exception:", exstr)
 
         else:
             cpcmd = "mc cp {}/*.parquet minio_logs/{}/{}/".format(

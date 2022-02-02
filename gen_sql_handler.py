@@ -433,7 +433,8 @@ def commit(args, line):
 
         bucket_ym_folder_name = args['log_hash_ym_str'].replace("_", "-")
         if args['unmerge']:
-            if False:
+            if 'WEB_DOMAIN_NAME' in os.environ and os.environ['WEB_DOMAIN_NAME'] == 'localhost':
+                print('localhost mc rm old parquet files')
                 # object listing would cost too much cpu and class a operations so skip this for parquet mode
                 rmcmd = "mc find minio_logs/{}/{}/ --name '*_{}.parquet'".format(
                     bucket_name,

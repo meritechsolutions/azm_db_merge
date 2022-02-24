@@ -1481,7 +1481,7 @@ def exec_creatept_or_alter_handle_concurrency(sqlstr, raise_exception_if_fail=Tr
 
 
 def is_datetime_col(col):
-    return col.endswith("time") and (not col.endswith("trip_time"))
+    return col.endswith("time") and (not col.endswith("trip_time")) and (not col.endswith("_interruption_time"))
 
 
 def is_numeric_col_type(col_type):

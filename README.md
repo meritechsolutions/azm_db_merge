@@ -81,7 +81,7 @@ Please open example GNU/Linux shell script files named below in a text editor:
   
 ---
 
-*Microsoft SQL Server support is now deprecated - we do not support MS SQL Server import anymore as all our new features, servers and azm_db_merge users are on PostgreSQL only.*
+*Microsoft SQL Server support is now deprecated - we do not support MS SQL Server import anymore as all our new features, servers and azm_db_merge users are on either PostgreSQL or Apache Parquet + Apache Spark.*
 
 ---
 

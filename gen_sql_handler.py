@@ -1091,7 +1091,7 @@ def create(args, line):
                 elif col == "exynos_basic_info_nr_cellid":
                     pa_column_types[col] = pa.uint64()
                 elif col in ["lte_m_tmsi", "lte_mmec"]:
-                    pa_column_types[col] = pa.uint64()
+                    pa_column_types[col] = pa.int64()
                     
             
             # adj types for pa

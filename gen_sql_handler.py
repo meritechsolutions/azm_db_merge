@@ -639,6 +639,10 @@ def create(args, line):
         if args["azm_apk_version"] < wifi_scanned_MIN_APP_V0*1000*1000 + wifi_scanned_MIN_APP_V1*1000 + wifi_scanned_MIN_APP_V2:
             print("omit invalidly huge wifi_scanned table in older app vers requested by a customer - causes various db issues")
             return False
+
+    if table_name == "lte_rrc_tmsi" and not args['dump_parquet']:
+        print('skipping lte_rrc_tmsi table for legacy postgres mode')
+        return False
         
     if args['import_geom_column_in_location_table_only'] and table_name != "location":
         line_adj = sql_adj_line(line.replace(',"geom" BLOB','',1))

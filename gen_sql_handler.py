@@ -798,14 +798,13 @@ def create(args, line):
 
                     for col in local_columns:
                         col_name = col[0]
-                        col_type = col[1]                        
+                        col_type = col[1]
 
                         ####### quickfix: col_type override for unsigned int32 cols from sqlite (bindLong already) - conv to bigint in pg as pg doesnt have unsigned
-                        if col_name in ["lte_volte_rtp_source_ssrc", "lte_volte_rtp_timestamp", "lte_m_tmsi", "lte_mmec"] :
+                        if col_name == "lte_volte_rtp_source_ssrc" or col_name == "lte_volte_rtp_timestamp":
                             # might need to psql to do first manually if log was already imported using older azm_db_merge:
                             # alter table all_logs.lte_volte_rtp_msg alter column lte_volte_rtp_source_ssrc type bigint;
                             # alter table all_logs.lte_volte_rtp_msg alter column lte_volte_rtp_timestamp type bigint;
-                            print("col_name in list", col_name)
 
                             col_type = "bigint"                
                         #######################
@@ -1090,9 +1089,6 @@ def create(args, line):
                     pa_column_types[col] = pa.string()
                 elif col == "exynos_basic_info_nr_cellid":
                     pa_column_types[col] = pa.uint64()
-                elif col in ["lte_m_tmsi", "lte_mmec"]:
-                    pa_column_types[col] = pa.uint64()
-                    
             
             # adj types for pa
 

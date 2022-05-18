@@ -1046,7 +1046,7 @@ def create(args, line):
                             continue
                         """
                         if g_is_postgre:
-                            ofl = ofl.replace(',"NaT"',',')
+                            ofl = ofl.replace(',NaT',',')
 
                         ofl = find_and_conv_spatialite_blob_to_wkb(ofl)
 

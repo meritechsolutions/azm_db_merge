@@ -1044,7 +1044,9 @@ def create(args, line):
                         """ no need to check this, only old stale thread versions would have these cases and will have other cases too so let it crash in all those cases
                         if ofl.strip() == all_cols_null_line:
                             continue
-                        """                   
+                        """
+                        if g_is_postgre:
+                            ofl = ofl.replace(',"NaT"',',')
 
                         ofl = find_and_conv_spatialite_blob_to_wkb(ofl)
 

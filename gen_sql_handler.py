@@ -763,7 +763,7 @@ def create(args, line):
             ret = None
             # use with for auto rollback() on g_conn on expected fails like already exists
             with g_conn:
-                sqlstr = sqlstr.replace('" bigintEGER,', '" bigint,')
+                sqlstr = sqlstr.replace('" bigintEGER,', '" bigint,').replace('" bigintEGER)', '" bigint)')
                 print("exec:", sqlstr)
                 ret = g_cursor.execute(sqlstr)
             # commit now otherwise COPY might not see partitions

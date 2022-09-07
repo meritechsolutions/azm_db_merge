@@ -1112,6 +1112,7 @@ def create(args, line):
                 read_options=csv.ReadOptions(
                     column_names=local_column_names,
                     autogenerate_column_names=False,
+                    block_size=10*1024*1024,
                 ),
                 parse_options=csv.ParseOptions(
                     newlines_in_values=True

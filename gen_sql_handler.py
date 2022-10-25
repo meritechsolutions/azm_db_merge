@@ -340,7 +340,7 @@ def check_if_already_merged(args, log_hash):
                 print("WARNING: ignore error for table: {}", table_name)
             else:
                 print("re-raise exception e - ",exstr)
-            raise e
+                raise e
         
     return False
         

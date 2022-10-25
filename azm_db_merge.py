@@ -367,8 +367,15 @@ def handle_sql3_dump_line(args, line):
 
         print(("\nprocessing: create/alter/insert for table_name: "+table_name))
         print("processing create at handler module...") # always create - flag override
-        handle_ret = g_create_function(args, line)
-
+        try:
+            handle_ret = g_create_function(args, line)
+        except Exception as e:
+            estr = str(e)
+            ignore_tables = ["lte_rrc_tmsi"]
+            if table_name.strip() in ignore_tables:
+                print("WARNING: ignoring error: {} for table: {}".format(e, table_name))
+            else:
+                raise e
         
     elif (line.startswith("COMMIT;")):        
         print("\nprocessing: commit")        

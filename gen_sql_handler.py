@@ -335,12 +335,8 @@ def check_if_already_merged(args, log_hash):
         else:
             type_, value_, traceback_ = sys.exc_info()
             exstr = str(traceback.format_exception(type_, value_, traceback_))
-            ignore_tables = ["lte_rrc_tmsi"]
-            if table_name in ignore_tables:
-                print("WARNING: ignore error for table: {}", table_name)
-            else:
-                print("re-raise exception e - ",exstr)
-                raise e
+            print("re-raise exception e - ",exstr)
+            raise e
         
     return False
         

@@ -371,7 +371,10 @@ def handle_sql3_dump_line(args, line):
             handle_ret = g_create_function(args, line)
         except Exception as e:
             estr = str(e)
-            ignore_tables = ["lte_rrc_tmsi"]
+            ignore_tables = [
+                "lte_rrc_tmsi",
+                "nr_handover_stats" # pg col name too long - most servers are spark already anyway - migrating the rest
+            ]
             if table_name.strip() in ignore_tables:
                 print("WARNING: ignoring error: {} for table: {}".format(e, table_name))
             else:

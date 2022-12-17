@@ -1182,7 +1182,7 @@ def create(args, line):
                 field = fields_need_pd_datetime[i]
                 print("converting field index {} name {} to datetime...".format(index, field))
                 # convert
-                converted_sr = pd.to_datetime(padf.column(index).to_pandas())
+                converted_sr = pd.to_datetime(padf.column(index).to_pandas(), errors='coerce')
                 #print "converted_sr head:", converted_sr.head()
                 # assign it back
                 # print "padf.schema:\n", padf.schema

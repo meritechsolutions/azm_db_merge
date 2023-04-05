@@ -116,19 +116,9 @@ def connect(args):
 
     if g_is_ms:
         print("Connecting... Target DBMS type: mssql")
-        dprint("connect args: {} {} {} {}".format(args['server_url'],
-                                                  args['server_user'],
-                                                  args['server_password'],
-                                                  args['server_database']
-                                                  )
-               )
-        driver = args['mssql_odbc_driver']
-        connect_str = 'DRIVER={};SERVER={};DATABASE={};UID={};PWD={}'.format(
-                driver,
-                args['server_url'],
-                args['server_database'],
-                args['server_user'],
-                args['server_password'])
+        connect_str = args['mssql_conn_str']
+        if not connect_str:
+            raise Exception("invalid: mssql mode requres: --mssql_conn_str argument")
         #unsafe as users might see in logs print "using connect_str: "+connect_str
         """
         https://msdn.microsoft.com/en-us/library/ms131281.aspx

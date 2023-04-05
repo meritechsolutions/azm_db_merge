@@ -102,6 +102,9 @@ def parse_cmd_args():
     
     parser.add_argument('--server_database',
                         help="Target database name.", required=True)
+
+    parser.add_argument('--mssql_conn_str',
+                        help="Microsoft sql server connection string", required=False)
     
     parser.add_argument('--check_and_dont_create_if_empty',
                         action='store_true',
@@ -111,10 +114,6 @@ def parse_cmd_args():
     parser.add_argument('--sqlite3_executable',
                         help="Full path to sqlite3 executable.",
                         default="sqlite3")
-    
-    parser.add_argument('--mssql_odbc_driver',
-                        help="Driver string for SQL Server",
-                        default="{SQL Server Native Client 11.0}")
 
     parser.add_argument('--dump_to_file_mode',
                         action='store_true',

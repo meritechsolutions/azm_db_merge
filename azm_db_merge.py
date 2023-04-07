@@ -1041,6 +1041,16 @@ if __name__ == '__main__':
     signal.signal(signal.SIGTERM, sigterm_handler)
 
     args = parse_cmd_args()
+    import gen_sql_handler
+    cf = os.path.join(gen_sql_handler.get_module_path(), 'mssql_conn_str')
+    print("cf:", cf)
+    if os.path.isfile(cf):
+        with open(cf, "r") as f:
+            print("NOTE: using mssql_conn_str file:", cf)
+            connect_str = f.read().strip()
+            args["mssql_conn_str"] = connect_str
+            args["target_db_type"] = "mssql"
+            args['dump_parquet'] = False
     args["table_operation_stats"] = {
         "table": [],
         "operation": [],

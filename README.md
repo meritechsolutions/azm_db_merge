@@ -81,7 +81,13 @@ Please open example GNU/Linux shell script files named below in a text editor:
   
 ---
 
-*Microsoft SQL Server support is now deprecated - we do not support MS SQL Server import anymore as all our new features, servers and azm_db_merge users are on either PostgreSQL or Apache Parquet + Apache Spark.*
+### Microsoft SQL Server examples:
+
+
+- create a file named `mssql_conn_str` in current folder with contents of the ms sql connection string like `DRIVER={ODBC Driver 17 for SQL Server};Server=192.168.1.85,1433;Database=master;UID=sa;PWD=qazwsx123` - this will override other arguments to use mssql mode.
+- run example:
+`python azm_db_merge.py --azm_file "example_logs/358096071732800 2_1_2017 13.12.49.azm" --target_db_type postgresql --server_user dummy --server_password dummy --server_database dummy`
+
 
 ---
 
@@ -140,13 +146,13 @@ Special Thanks
 
 - Thanks to the [psycopg2](http://initd.org/psycopg/) project for providing simple, stable, fast PostgreSQL access.
 
-- Thanks to the [pyodbc](https://mkleehammer.github.io/pyodbc/) project for providing simple, stable, fast ODBC (to Microsoft SQL Server) access. (MS SQL Server import support is now deprecated)
+- Thanks to the [pyodbc](https://mkleehammer.github.io/pyodbc/) project for providing simple, stable, fast ODBC (to Microsoft SQL Server) access.
 
 - Thanks to [SQLite](https://sqlite.org/) for their fast, light, powerful DBMS.
 
 - Thanks to [PostgreSQL](https://www.postgresql.org/) for their advanced, fast, powerful DBMS.
 
-- Thanks to Microsoft for providing [SQL Server 2014 Developer Edition for FREE](https://blogs.technet.microsoft.com/dataplatforminsider/2016/03/31/microsoft-sql-server-developer-edition-is-now-free/). (MS SQL Server import support is now deprecated)
+- Thanks to Microsoft for providing SQL Server 2022 developer edition for free.
 
 
 License

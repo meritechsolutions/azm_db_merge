@@ -89,6 +89,11 @@ KNOWN_COL_TYPES_LOWER_TO_PD_PARQUET_TYPE_DICT = {
 }
 
 ### below are functions required/used by azq_db_merge        
+def get_module_path():
+    return os.path.realpath(
+        os.path.join(os.getcwd(), os.path.dirname(__file__))
+    )
+
 
 def connect(args):
     global g_bulk_insert_mode
@@ -117,8 +122,17 @@ def connect(args):
     if g_is_ms:
         print("Connecting... Target DBMS type: mssql")
         connect_str = args['mssql_conn_str']
+        print("connect_str:", connect_str)
+        mssql_conn_str_dict = {}
+        for part in connect_str.split(";"):
+            if "=" in part:
+                ppart = part.split("=")
+                mssql_conn_str_dict[ppart[0]] = ppart[1]
+        print("conn_str_dict:", mssql_conn_str_dict)
+        assert mssql_conn_str_dict
+        args["mssql_conn_str_dict"] = mssql_conn_str_dict
         if not connect_str:
-            raise Exception("invalid: mssql mode requres: --mssql_conn_str argument")
+            raise Exception("invalid: mssql mode requres: --mssql_conn_str or mssql_conn_str file argument")
         #unsafe as users might see in logs print "using connect_str: "+connect_str
         """
         https://msdn.microsoft.com/en-us/library/ms131281.aspx
@@ -381,11 +395,24 @@ def commit(args, line):
     
     i = 0
     for buf in g_exec_buf:
+        #print("buf:", buf)
         if isinstance(buf, tuple):
             # for COPY from stdin
             buf, dump_fp = buf
-            with open(dump_fp, "rb") as dump_fp_fo:
-                g_cursor.copy_expert(buf, dump_fp_fo)
+            if g_is_postgre:
+                with open(dump_fp, "rb") as dump_fp_fo:
+                    g_cursor.copy_expert(buf, dump_fp_fo)
+            elif g_is_ms:
+                table = buf.split('"')[1].strip()
+                assert table
+                mssql_conn_str_dict = args["mssql_conn_str_dict"]
+                assert mssql_conn_str_dict
+                cmd = f'''bcp {mssql_conn_str_dict["Database"]}.dbo.{table} in {dump_fp} -S "{mssql_conn_str_dict["Server"]}" -U "{mssql_conn_str_dict["UID"]}" -P "{mssql_conn_str_dict["PWD"]}" -t"{azm_db_constants.BULK_INSERT_COL_SEPARATOR_PARAM}" -r"{azm_db_constants.BULK_INSERT_LINE_SEPARATOR_PARAM}" -c'''
+                print("mssql bcp cmd:\n", cmd)
+                cmd_ret = os.system(cmd)
+                assert 0 == cmd_ret
+            else:
+                raise Exception("invalid not pg not ms")
         else:
             try:
                 
@@ -1413,18 +1440,19 @@ def get_remote_columns(args, table_name):
         for row in rows:
             '''
             MSSQL Column str return example:
-            row n: {0: u'azqdemo', 1: u'dbo', 2: u'android_metadata', 3: u'locale', 4: -1, 5: u'text', u'DATA_TYPE': -1, 7: 2147483647, 8: None, 9: None, 10: 1, 11: None, 12: None, 13: -1, 14: None, 15: 2147483647, u'COLUMN_DEF': None, 17: u'YES', 18: 35, u'SCALE': None, u'TABLE_NAME': u'android_metadata', u'SQL_DATA_TYPE': -1, 6: 2147483647, u'NULLABLE': 1, u'REMARKS': None, u'CHAR_OCTET_LENGTH': 2147483647, u'COLUMN_NAME': u'locale', u'SQL_DATETIME_SUB': None, u'TABLE_OWNER': u'dbo', 16: 1, u'RADIX': None, u'SS_DATA_TYPE': 35, u'TYPE_NAME': u'text', u'PRECISION': 2147483647, u'IS_NULLABLE': u'YES', u'LENGTH': 2147483647, u'ORDINAL_POSITION': 1, u'TABLE_QUALIFIER': u'azqdemo'}
+            row n: ('master', 'dbo', 'events', 'log_hash', -5, 'bigint', 19, 8, 0, 10, 1, None, None, -5, None, None, 1, 'YES', 108)
 
             Result:
             col_name: locale
             col_type: text
             '''
             rs = str(row)
-            #dprint("row n: " + rs)
-            splitted = rs.split(", u")
-            col_name = splitted[3].split("'")[1]
-            #dprint("col_name: "+col_name)
-            col_type = splitted[4].split("'")[1]
+            #print("row n: " + rs)
+            splitted = rs.split(",")
+            #print("splitted:", splitted)
+            col_name = splitted[3].replace("'","").strip()
+            #print("col_name: "+col_name)
+            col_type = splitted[5].replace("'","").strip()
             #dprint("col_type: "+col_type)
             remote_columns.append([col_name,col_type])
 

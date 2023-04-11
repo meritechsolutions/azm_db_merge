@@ -655,7 +655,7 @@ def create(args, line):
         
     g_prev_create_statement_column_names = None
 
-    if args["pg_schema"] != "public":
+    if g_is_postgre and args["pg_schema"] != "public":
         g_cursor.execute("SET search_path = '{}','public';".format(args["pg_schema"]))
 
     line_adj = sql_adj_line(line)

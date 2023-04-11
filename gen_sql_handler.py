@@ -899,6 +899,21 @@ def create(args, line):
             else:
                 raise Exception("FATAL: create table error - : \nemsg:\n "+emsg+" \nsqlstr:\n"+sqlstr)
 
+    if g_is_ms:
+        try:
+            with g_conn:
+                print("ms create index start")
+                cre_index_for_sql = "CREATE INDEX lh_idx_{} ON dbo.{} (log_hash);".format(table_name,table_name)
+                print("exec:", cre_index_for_sql)
+                ret = g_cursor.execute(cre_index_for_sql)
+                print("ms create index done")
+        except Exception as e:
+            if "already exists on table" in str(e):
+                pass
+            else:
+                print("WARNING: ms create index exception:", e)
+
+
     local_col_name_to_type_dict = {}
 
     if g_bulk_insert_mode:

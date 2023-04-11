@@ -1423,7 +1423,7 @@ def sql_adj_line(line):
         
         #  ('42000', "[42000] [Microsoft][ODBC Driver 17 for SQL Server][SQL Server]A table can only have one timestamp column. Because table 'pp_statement_sum_browse' already has one, the column 'statement_start_time' cannot be added. (2738) (SQLExecDirectW)") 
         sqlstr = sqlstr.replace('" TIMESTAMP', '" DATETIME')
-        sqlstr = sqlstr.replace('"time" DATETIME', '"time" TIMESTAMP')
+        #sqlstr = sqlstr.replace('"time" DATETIME', '"time" TIMESTAMP')
 
         
     # default empty fields to text type

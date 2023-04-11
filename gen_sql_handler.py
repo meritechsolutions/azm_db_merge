@@ -854,9 +854,13 @@ def create(args, line):
                         for new_col in local_columns_not_in_remote:
                             # not first
                             prefix = ""
-                            if (alter_cols != ""):
+                            if alter_cols != "":
                                 prefix = ", "
-                            alter_cols = alter_cols + prefix + " ADD " + new_col
+                            else:
+                                # first col
+                                if g_is_ms:
+                                    prefix = " ADD "
+                            alter_cols += prefix + (" ADD " if not g_is_ms else "") + new_col
 
                         alter_str = alter_str + alter_cols + ";"
 

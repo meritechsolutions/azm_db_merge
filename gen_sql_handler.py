@@ -397,20 +397,41 @@ def commit(args, line):
     for buf in g_exec_buf:
         #print("buf:", buf)
         if isinstance(buf, tuple):
-            # for COPY from stdin
-            buf, dump_fp = buf
+            # for COPY from stdin            
             if g_is_postgre:
+                buf, dump_fp = buf
                 with open(dump_fp, "rb") as dump_fp_fo:
                     g_cursor.copy_expert(buf, dump_fp_fo)
             elif g_is_ms:
+                buf, dump_fp, dump_format_fp = buf
                 table = buf.split('"')[1].strip()
                 assert table
                 mssql_conn_str_dict = args["mssql_conn_str_dict"]
                 assert mssql_conn_str_dict
-                cmd = f'''bcp {mssql_conn_str_dict["Database"]}.dbo.{table} in {dump_fp} -S "{mssql_conn_str_dict["Server"]}" -U "{mssql_conn_str_dict["UID"]}" -P "{mssql_conn_str_dict["PWD"]}" -t"{azm_db_constants.BULK_INSERT_COL_SEPARATOR_PARAM}" -r"{azm_db_constants.BULK_INSERT_LINE_SEPARATOR_PARAM}" -c'''
+                dump_error_fp = dump_fp+"_errors.txt"
+                #cmd = f'''bcp {mssql_conn_str_dict["Database"]}.dbo.{table} in {dump_fp} -S "{mssql_conn_str_dict["Server"]}" -U "{mssql_conn_str_dict["UID"]}" -P "{mssql_conn_str_dict["PWD"]}" -e {dump_error_fp} -f {dump_format_fp}'''
+                cmd = [
+                    "bcp", f'''{mssql_conn_str_dict["Database"]}.dbo.[{table}]''',
+                    "in", dump_fp,
+                    "-S", mssql_conn_str_dict["Server"],
+                    "-U", mssql_conn_str_dict["UID"],
+                    "-P", mssql_conn_str_dict["PWD"],
+                    "-e", dump_error_fp,
+                    "-f", dump_format_fp
+                ]
                 print("mssql bcp cmd:\n", cmd)
-                cmd_ret = os.system(cmd)
-                assert 0 == cmd_ret
+                #cmd_ret = os.system(cmd)
+                cmd_ret = call(cmd)
+                if 0 != cmd_ret:
+                    emsg = f"bcm cmd failed ret: {cmd_ret}"
+                    print(emsg)
+                    if os.path.isfile(dump_error_fp):
+                        print("--- mssql bcm error file dump: START ---")
+                        with open(dump_error_fp, "rt") as ef:
+                            dt = ef.read()
+                            print(dt)
+                        print("--- mssql bcm error file dump: END ---")
+                    raise Exception(emsg)
             else:
                 raise Exception("invalid not pg not ms")
         else:
@@ -972,7 +993,9 @@ def create(args, line):
             ### custom limit bsic len in case matched wrongly entered bsic to long str but pg takes max 5 char len for bsic
             if col_name == "modem_time":
                 # handle invalid modem_time case: 159841018-03-10 07:24:42.191
-                col_name = "strftime('%Y-%m-%d %H:%M:%f', modem_time) as modem_time"            
+                col_name = "strftime('%Y-%m-%d %H:%M:%f', modem_time) as modem_time"
+            elif g_is_ms and (col_type.lower() == "timestamp" or col_type.lower() == "datetime"): #name == "time" or col_name.endswith("_datetime") or col_name.endswith("_date") or col_name.endswith("_time"):
+                col_name = f"strftime('%Y-%m-%d %H:%M:%f', {col_name}) as {col_name}"
             elif col_name == "gsm_bsic":
                 col_name = "substr(gsm_bsic, 0, 6) as gsm_bsic"  # limit to 5 char len (6 is last index excluding)
             elif col_name == "android_cellid_from_cellfile":
@@ -1019,6 +1042,7 @@ def create(args, line):
                 select_sqlstr += " where time >= '{}' and time <= '{}'".format(args['log_data_min_time'], args['log_data_max_time'])
                 
             #print "select_sqlstr:", select_sqlstr
+            
             dump_cmd = [
                 args['sqlite3_executable'],
                 args['file'],
@@ -1338,6 +1362,8 @@ def create(args, line):
                 table_dump_fp,
                 table_dump_format_fp
             )
+            g_exec_buf.append((sqlstr, table_dump_fp, table_dump_format_fp))
+            return True
 
         if g_is_postgre:
             colnames = ""
@@ -1394,7 +1420,10 @@ def sql_adj_line(line):
         sqlstr = sqlstr.replace("\" BLOB", "\" varbinary(MAX)")
         sqlstr = sqlstr.replace("\" string", "\" varchar(MAX)")
         sqlstr = sqlstr.replace("\" TEXT", "\" varchar(MAX)")
-        sqlstr = sqlstr.replace("\" TIMESTAMP", "\" DATETIME")
+        
+        #  ('42000', "[42000] [Microsoft][ODBC Driver 17 for SQL Server][SQL Server]A table can only have one timestamp column. Because table 'pp_statement_sum_browse' already has one, the column 'statement_start_time' cannot be added. (2738) (SQLExecDirectW)") 
+        sqlstr = sqlstr.replace('" TIMESTAMP', '" DATETIME')
+        sqlstr = sqlstr.replace('"time" DATETIME', '"time" TIMESTAMP')
 
         
     # default empty fields to text type

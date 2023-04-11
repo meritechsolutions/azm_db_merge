@@ -1420,10 +1420,12 @@ def sql_adj_line(line):
         sqlstr = sqlstr.replace("\" BLOB", "\" varbinary(MAX)")
         sqlstr = sqlstr.replace("\" string", "\" varchar(MAX)")
         sqlstr = sqlstr.replace("\" TEXT", "\" varchar(MAX)")
+        sqlstr = sqlstr.replace("\" text", "\" varchar(MAX)")
         
         #  ('42000', "[42000] [Microsoft][ODBC Driver 17 for SQL Server][SQL Server]A table can only have one timestamp column. Because table 'pp_statement_sum_browse' already has one, the column 'statement_start_time' cannot be added. (2738) (SQLExecDirectW)") 
         sqlstr = sqlstr.replace('" TIMESTAMP', '" DATETIME')
         #sqlstr = sqlstr.replace('"time" DATETIME', '"time" TIMESTAMP')
+        assert " text" not in sqlstr  # users have issue when compare varchar with text in mssql
 
         
     # default empty fields to text type

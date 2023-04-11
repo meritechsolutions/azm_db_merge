@@ -1393,6 +1393,9 @@ def sql_adj_line(line):
     if g_is_ms:
         sqlstr = sqlstr.replace("\" BLOB", "\" varbinary(MAX)")
         sqlstr = sqlstr.replace("\" string", "\" varchar(MAX)")
+        sqlstr = sqlstr.replace("\" TEXT", "\" varchar(MAX)")
+        sqlstr = sqlstr.replace("\" TIMESTAMP", "\" DATETIME")
+
         
     # default empty fields to text type
     # sqlstr = sqlstr.replace("\" ,", "\" text,")

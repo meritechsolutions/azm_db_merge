@@ -1051,6 +1051,10 @@ if __name__ == '__main__':
             args["mssql_conn_str"] = connect_str
             args["target_db_type"] = "mssql"
             args['dump_parquet'] = False
+            args["pg_schema"] = ""
+            args["pg10_partition_by_month"] = False
+            args["pg10_partition_index_log_hash"] = False
+            
     args["table_operation_stats"] = {
         "table": [],
         "operation": [],

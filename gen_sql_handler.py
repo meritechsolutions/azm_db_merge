@@ -259,7 +259,7 @@ def check_if_already_merged(args, log_hash):
     global g_exec_buf
     global g_is_ms, g_is_postgre
 
-    if args["pg_schema"] != "public":
+    if g_is_postgre and args["pg_schema"] != "public":
         g_cursor.execute("SET search_path = '{}','public';".format(args["pg_schema"]))
     
     try:

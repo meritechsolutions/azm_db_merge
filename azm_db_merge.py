@@ -671,6 +671,9 @@ def process_azm_file(args):
             print("redis check pg_newest_azm_app_ver excepition:", exstr)
         print("args['app_ver_newer_than_in_pg']:", args['app_ver_newer_than_in_pg'])
         print("args['need_check_remote_cols']:", args['need_check_remote_cols'])
+
+        if args["target_db_type"] == "mssql":
+            args['need_check_remote_cols'] = True
         
         g_check_and_dont_create_if_empty = args['check_and_dont_create_if_empty']
         use_popen_mode = not args['dump_to_file_mode']

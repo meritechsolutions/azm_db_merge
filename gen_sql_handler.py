@@ -1135,7 +1135,12 @@ def create(args, line):
         ################## read csv to arrow, set types, dump to parqet - return True, but if log_table dont return - let it enter pg too...
         # yes, arrow read from csv, convert to pd to mod datetime col and add lat lon is faster than pd.read_sql() and converting fields and to parquet
         if args['dump_parquet']:
-            #print "local_column_names:", local_column_names            
+            #print "local_column_names:", local_column_names
+            if table_name == "nr_deb_stat":
+                if "nr_rlc_ul_tp_kbps" in local_column_dict:
+                    local_column_dict["nr_rlc_ul_tp_kbps"] = 'float'
+                if "nr_rlc_dl_tp_kbps" in local_column_dict:
+                    local_column_dict["nr_rlc_dl_tp_kbps"] = 'float'
             pa_column_types = local_column_dict.copy()
             for col in list(pa_column_types.keys()):
                 sqlite_col_type = pa_column_types[col].lower()
@@ -1161,8 +1166,7 @@ def create(args, line):
                     
             
             # adj types for pa
-
-
+            print("local_column_dict:", local_column_dict)
             start_time = datetime.datetime.now()
             print("read csv into pa:", table_dump_fp)
             #print("pa_column_types:", pa_column_types)

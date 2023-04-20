@@ -395,7 +395,26 @@ def commit(args, line):
             # for COPY from stdin
             buf, dump_fp = buf
             with open(dump_fp, "rb") as dump_fp_fo:
-                g_cursor.copy_expert(buf, dump_fp_fo)
+                try:
+                    with g_conn:
+                        g_cursor.copy_expert(buf, dump_fp_fo)
+                except:
+                    type_, value_, traceback_ = sys.exc_info()
+                    exstr = str(traceback.format_exception(type_, value_, traceback_))
+                    if 'psycopg2.errors.UndefinedColumn: column "time_ms"' in exstr:
+                        print("handle rm time_ms col case, buf:", buf)
+                        buf = buf.replace(',"time_ms"', "")
+                        df = pd.read_csv(dump_fp, header=None)
+                        print("df:", df)
+                        assert len(df) == 1
+                        print("time_ms handle csv read cols:", df.columns)
+                        del df[df.columns[2]]
+                        import csv as pycsv
+                        df.to_csv(dump_fp,index=False,header=False)
+                        g_cursor.copy_expert(buf, dump_fp_fo)
+                    else:
+                        raise e
+                        
         else:
             try:
                 

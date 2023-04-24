@@ -645,6 +645,7 @@ def find_and_conv_spatialite_blob_to_wkb(csv_line):
     return csv_line
 
 
+g_remote_columns_not_in_local = {}
 def create(args, line):
     global g_cursor, g_conn
     global g_prev_create_statement_table_name
@@ -652,7 +653,8 @@ def create(args, line):
     global g_exec_buf
     global g_is_ms, g_is_postgre
     global g_unmerge_logs_row
-        
+    global g_remote_columns_not_in_local
+
     g_prev_create_statement_column_names = None
 
     if g_is_postgre and args["pg_schema"] != "public":
@@ -837,7 +839,9 @@ def create(args, line):
                     # now get local columns that are not in remote
 
                     local_columns_not_in_remote = []
-
+                    if g_is_ms:
+                        g_remote_columns_not_in_local[table_name] = [x for x in remote_columns if x[0] not in local_column_names]
+                        print("remote_columns_not_in_local:", g_remote_columns_not_in_local[table_name])
                     for col in local_columns:
                         col_name = col[0]
                         col_type = col[1]                        
@@ -1029,12 +1033,16 @@ def create(args, line):
                     pre = "cast("
                     post = " as double)"
             
-            col_select = col_select + pre + col_name + post            
+            col_select += pre + col_name + post
             i = i + 1
         
-        dprint("col_select: "+col_select)
+
                 
         if g_is_ms:
+            if len(g_remote_columns_not_in_local[table_name]):
+                col_select += ", "
+                col_select += ", ".join([f" NULL as {x[0]} " for x in g_remote_columns_not_in_local[table_name]])
+            print("ms col_select: " + col_select)
             ret = call(
                 [
                 args['sqlite3_executable'],
@@ -1330,7 +1338,8 @@ def create(args, line):
             https://msdn.microsoft.com/en-us/library/ms191479(v=sql.110).aspx                
             """
 
-            n_local_cols = len(local_column_names)
+            ms_fmt_cols = list(local_column_names+[x[0] for x in g_remote_columns_not_in_local[table_name]])
+            n_local_cols = len(ms_fmt_cols)
 
             fmt = open(table_dump_format_fp,"w")
             fmt.write("11.0\n") # ver - 11.0 = SQL Server 2012
@@ -1345,7 +1354,7 @@ def create(args, line):
             server_col_name = None # dyn gen
             col_coalition = ""
 
-            for col in local_column_names:
+            for col in ms_fmt_cols:
                 host_field_order = host_field_order + 1
                 if (n_local_cols == host_field_order): #last
                     terminator = azm_db_constants.BULK_INSERT_LINE_SEPARATOR_PARAM

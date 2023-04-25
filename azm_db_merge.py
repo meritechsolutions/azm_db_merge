@@ -338,13 +338,13 @@ def handle_sql3_dump_line(args, line):
             if table_name in args['only_tables_array']:
                 is_omit_table = False
             dprint("--only_tables on - exclude this table? "+table_name+" = "+str(is_omit_table))
-        
-        
+
+
     if (
             line.startswith("CREATE TABLE ") and
             not line.startswith("CREATE TABLE android_metadata") and
             not ("_layer_statistics" in line) and
-            not is_omit_table
+            not (is_omit_table)
     ):
 
         # get table name:
@@ -1057,6 +1057,12 @@ if __name__ == '__main__':
             args["pg_schema"] = ""
             args["pg10_partition_by_month"] = False
             args["pg10_partition_index_log_hash"] = False
+    otf = os.path.join(gen_sql_handler.get_module_path(), "only_tables")
+    if os.path.isfile(otf):
+        with open(otf, "r") as f:
+            tl = f.read().strip()
+            args["only_tables"] = tl
+
             
     args["table_operation_stats"] = {
         "table": [],

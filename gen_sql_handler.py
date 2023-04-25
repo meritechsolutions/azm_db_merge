@@ -841,7 +841,7 @@ def create(args, line):
                     local_columns_not_in_remote = []
                     if g_is_ms:
                         g_remote_columns_not_in_local[table_name] = [x for x in remote_columns if x[0] not in local_column_names]
-                        print("remote_columns_not_in_local:", g_remote_columns_not_in_local[table_name])
+                        print("remote_columns_not_in_local table_name:", table_name, g_remote_columns_not_in_local[table_name])
                     for col in local_columns:
                         col_name = col[0]
                         col_type = col[1]                        
@@ -1039,6 +1039,8 @@ def create(args, line):
 
                 
         if g_is_ms:
+            if table_name not in g_remote_columns_not_in_local:
+                g_remote_columns_not_in_local[table_name] = []
             if len(g_remote_columns_not_in_local[table_name]):
                 col_select += ", "
                 col_select += ", ".join([f" NULL as {x[0]} " for x in g_remote_columns_not_in_local[table_name]])

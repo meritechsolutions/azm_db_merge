@@ -1129,13 +1129,14 @@ if __name__ == '__main__':
     omit_tables_array = omit_tables.split(",")
     args['omit_tables_array'] = omit_tables_array
 
-    only_tables = "logs,"+args['only_tables']
-    only_tables_array = only_tables.split(",")
+    only_tables = "logs\n"+args['only_tables'].replace(",","\n")
+    only_tables_array = [x.strip() for x in only_tables.split("\n")]
     args['only_tables_array'] = only_tables_array
 
     if only_tables == "logs,": # logs is default table - nothing added
         args['only_tables_on'] = False
     else:
+        print("only_tables_on - will import only listed tables:", only_tables_array)
         args['only_tables_on'] = True
 
     if not args['move_imported_azm_files_to_folder'] is None:

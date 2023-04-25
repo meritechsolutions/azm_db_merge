@@ -1131,9 +1131,10 @@ if __name__ == '__main__':
 
     only_tables = "logs\n"+args['only_tables'].replace(",","\n")
     only_tables_array = [x.strip() for x in only_tables.split("\n")]
+    only_tables_array = [x for x in only_tables_array if x]
     args['only_tables_array'] = only_tables_array
 
-    if only_tables == "logs,": # logs is default table - nothing added
+    if len(only_tables_array) <= 1: # logs is default table - nothing added
         args['only_tables_on'] = False
     else:
         print("only_tables_on - will import only listed tables:", only_tables_array)

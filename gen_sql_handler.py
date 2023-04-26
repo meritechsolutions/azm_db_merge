@@ -1045,6 +1045,8 @@ def create(args, line):
                 col_select += ", "
                 col_select += ", ".join([f" NULL as {x[0]} " for x in g_remote_columns_not_in_local[table_name]])
             print("ms col_select: " + col_select)
+            if ", gsm_band," in col_select:   # customer db for gsm_band expects int
+                col_select = col_select.replace(", gsm_band,", ", substr(gsm_band, 4) as gsm_band,")
             ret = call(
                 [
                 args['sqlite3_executable'],

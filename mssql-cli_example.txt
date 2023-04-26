@@ -1,0 +1,2 @@
+pip install mssql-cli
+mssql-cli -U sa -P YOUR_PASSWORD -S mssql

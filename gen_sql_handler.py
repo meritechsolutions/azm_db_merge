@@ -1322,6 +1322,9 @@ def create(args, line):
             pq.write_table(padf, pqfp, flavor='spark', compression=PARQUET_COMPRESSION, use_dictionary=True)
             
             assert os.path.isfile(pqfp)
+            pq_fsz = os.stat(pqfp).st_size
+            print("pq_fsz:", pq_fsz)
+            assert pq_fsz
             append_table_operation_stats(args, table_name, "pq.write_table duration:", (datetime.datetime.now() - start_time).total_seconds())
             print("wrote pqfp:", pqfp)
             

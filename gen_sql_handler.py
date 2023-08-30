@@ -1007,6 +1007,9 @@ def create(args, line):
                     pass
                     #geom_col_index = i
 
+            if col_name.strip() == "time_ms":
+                continue  # very old logs when they added for mysql time cols that didnt have millis
+
             ############## wrong data format fixes
             
             ### custom limit bsic len in case matched wrongly entered bsic to long str but pg takes max 5 char len for bsic

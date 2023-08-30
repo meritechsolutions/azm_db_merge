@@ -733,6 +733,8 @@ def create(args, line):
         if args['import_geom_column_in_location_table_only'] and col_name == "geom" and table_name != "location":
             omit_col = True
         """
+        if col_name == "time_ms":
+            omit_col = True  # very old dbs where they added millis col as their mysql didnt support millis in time col
             
         if omit_col == False:
             local_column_dict[col_name] = col_type
@@ -1006,9 +1008,6 @@ def create(args, line):
                 if col_name == "geom":
                     pass
                     #geom_col_index = i
-
-            if col_name.strip() == "time_ms":
-                continue  # very old logs when they added for mysql time cols that didnt have millis
 
             ############## wrong data format fixes
             

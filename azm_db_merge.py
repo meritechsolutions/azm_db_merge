@@ -651,24 +651,7 @@ def process_azm_file(args):
         args['app_ver'] = app_ver
         args['app_ver_newer_than_in_pg'] = False
         args['need_check_remote_cols'] = True
-        try:
-            import redis
-            redis_cache = redis.Redis(host='redis', port=6379)            
-            pg_newest_azm_app_ver = redis_cache.get("pg_newest_azm_app_ver").decode()
-            print("pg_newest_azm_app_ver:", pg_newest_azm_app_ver)
-            if pg_newest_azm_app_ver:
-                if app_ver > pg_newest_azm_app_ver:
-                    print("case: pg_newest_azm_app_ver and (app_ver > pg_newest_azm_app_ver)")
-                    args['app_ver_newer_than_in_pg'] = True
-                    args['need_check_remote_cols'] = args['app_ver_newer_than_in_pg']
-                else:
-                    print("NOT case: pg_newest_azm_app_ver and (app_ver > pg_newest_azm_app_ver)")
-                    args['app_ver_newer_than_in_pg'] = False
-                    args['need_check_remote_cols'] = args['app_ver_newer_than_in_pg']
-        except:
-            type_, value_, traceback_ = sys.exc_info()
-            exstr = str(traceback.format_exception(type_, value_, traceback_))
-            print("redis check pg_newest_azm_app_ver excepition:", exstr)
+
         print("args['app_ver_newer_than_in_pg']:", args['app_ver_newer_than_in_pg'])
         print("args['need_check_remote_cols']:", args['need_check_remote_cols'])
 
@@ -898,20 +881,7 @@ def process_azm_file(args):
         if (args['unmerge']):
             operation = "unmerge/delete"
         else:
-            # set "pg_newest_azm_app_ver" in redis
-            try:
-                import redis
-                redis_cache = redis.Redis(host='redis', port=6379)
-                if args['app_ver_newer_than_in_pg'] or redis_cache.get("pg_newest_azm_app_ver") is None:
-                    print('need do redis_cache set("pg_newest_azm_app_ver")')
-                    redis_cache.set("pg_newest_azm_app_ver", args['app_ver'])
-                else:
-                    print('no need do redis_cache set("pg_newest_azm_app_ver")')
-            except:
-                type_, value_, traceback_ = sys.exc_info()
-                exstr = str(traceback.format_exception(type_, value_, traceback_))
-                print("redis set pg_newest_azm_app_ver excepition:", exstr)
-
+            pass
             
         if (n_lines_parsed != 0):
             print(( "\n=== SUCCESS - %s completed in %s seconds - tatal n_lines_parsed %d (not including bulk-inserted-table-content-lines)" % (operation, time.time() - proc_start_time, n_lines_parsed) ))

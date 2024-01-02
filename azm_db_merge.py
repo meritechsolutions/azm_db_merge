@@ -1,4 +1,5 @@
-infostr = '''azm_db_merge version 1.0 Copyright (c) 2016 Freewill FX Co., Ltd. All rights reserved.'''
+from version import VERSION
+infostr = f'''azm_db_merge version {VERSION} Copyright (c) 2016-2023 Freewill FX Co., Ltd. All rights reserved.'''
 usagestr = '''
 Merge (import) AZENQOS Android .azm
 test log files that contain SQLite3 database files (azqdata.db) into a target
